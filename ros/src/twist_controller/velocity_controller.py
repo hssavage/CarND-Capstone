@@ -18,32 +18,34 @@
 ###############################################################################
 '''
 
-
-# Gas density to help with weight
+# Gas density constant to help with weight
 GAS_DENSITY = 2.858
 
 class VelocityController(object):
     def __init__(self, vehicle_mass=1e-6, max_accel=0.0, max_decel=0.0,
-                 max_accel_torque=0.0, max_decel_torque=0.0, deadband=0.0,
-                 fuel_capacity=0.0):
+                 max_input_accel=0.0, max_input_decel=0.0, deadband=0.0,
+                 wheel_radius=0.0, fuel_capacity=0.0):
         '''
         Initializes the controller with thresholds and vehicle constants
         '''
 
+        # Calculate the weight of the vehicle with gas
         self.vehicle_mass = vehicle_mass
-
         self.fuel_weight = fuel_capacity * GAS_DENSITY
         self.fuel_percentage = 1.0
-
         self.total_vehicle_mass = self.vehicle_mass + (self.fuel_weight * GAS_DENSITY * self.fuel_percentage)
 
-        self.max_accel = max_accel
-        self.max_decel = max_decel
-
+        # Vehicle constants for Torque calculations
+        self.wheel_radius = wheel_radius
         self.deadband = deadband
 
-        self.max_accel_torque = max_accel_torque
-        self.max_decel_torque = max_decel_torque
+        # Vehicle limit constants
+        max_accel_torque = wheel_radius * max_accel * self.total_vehicle_mass
+        self.max_accel = max_accel # Actual acceleration value threshold (m/s^2)
+        self.max_decel = max_decel # Actual deceleration value threshold (m/s^2)
+        self.max_accel_input = max_input_accel # Max input to the DBW system
+        self.max_accel_torque = max_accel_torque # Max acceleration Torque (Nm)
+        self.max_decel_torque = max_input_decel # Max deceleration Torque (Nm)
 
     def set_fuel_percentage(self, fuel_percentage):
         '''
@@ -100,7 +102,7 @@ class VelocityController(object):
         # thresholds. It's different for acceleration and deceleration. For
         # Now we'll try to execute the acceleration over a second
         acc = d_vel
-        if(d_del > 0): # Accel
+        if(d_vel > 0): # Accel
             acc = min(d_vel, self.max_accel)
         else:          # Decel
             acc = max(d_vel, self.max_decel)
@@ -115,9 +117,14 @@ class VelocityController(object):
 
         # if we're accelerating, normalize this the range [0, 1]. We can use
         # the max torque value created above (mass * wheel radius * max acc)
+        # When we're on the throttle, we're off the brake and vice versa
         if(torque >= 0):
-            throttle, brake = min(1.0, torque / self.max_accel_torque), 0.0
+            # Gates the throttle to the input limit given which is a ration
+            # based on the torque outputted
+            throttle = (torque / self.max_accel_torque) * self.max_accel_input
+            throttle, brake = min(self.max_accel_input, throttle), 0.0
         else:
+            # Gates the braking input value which is just a torque value
             throttle, brake = 0.0, max(abs(torque), self.max_decel_torque)
 
         # Return our final value

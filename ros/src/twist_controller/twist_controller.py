@@ -33,8 +33,9 @@ from velocity_controller import VelocityController
 class Controller(object):
     def __init__(self, wheel_base=0.0, steer_ratio=0.0, min_speed=0.0,
                  max_lat_accel=0.0, max_steer_angle=0.0, vehicle_mass=1e-6,
-                 max_accel=0.0, max_decel=0.0, max_accel_torque=0.0,
-                 max_decel_torque=0.0, deadband=0.0, fuel_capacity=0.0):
+                 max_accel=0.0, max_decel=0.0, max_input_accel=0.0,
+                 max_input_decel=0.0, deadband=0.0, fuel_capacity=0.0,
+                 wheel_radius=0.0):
         '''
         '''
 
@@ -51,11 +52,11 @@ class Controller(object):
                                         vehicle_mass=vehicle_mass,
                                         max_accel=max_accel,
                                         max_decel=max_decel,
-                                        max_accel_torque=max_accel_torque,
-                                        max_decel_torque=max_decel_torque,
+                                        max_input_accel=max_input_accel,
+                                        max_input_decel=max_input_decel,
+                                        wheel_radius=wheel_radius,
                                         deadband=deadband,
-                                        fuel_capacity=fuel_capacity
-                                    )
+                                        fuel_capacity=fuel_capacity)
 
         # Vehicle Status variables
         self.cur_linear_velocity = 0
