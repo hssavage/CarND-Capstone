@@ -18,6 +18,9 @@
 # | 2/27/2018          | Henry Savage  | Integrated a velocity controller   | #
 # |                    |               | that works better than a PID       | #
 # +--------------------+---------------+------------------------------------+ #
+# | 2/28/2018          | Henry Savage  | Remove a few irrelevant lines of   | #
+# |                    |               | code and added comments            | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -27,9 +30,6 @@ from yaw_controller import YawController
 # For throttle/brake control
 from velocity_controller import VelocityController
 
-# For timestamping - time()
-# from time import time
-
 class Controller(object):
     def __init__(self, wheel_base=0.0, steer_ratio=0.0, min_speed=0.0,
                  max_lat_accel=0.0, max_steer_angle=0.0, vehicle_mass=1e-6,
@@ -37,6 +37,7 @@ class Controller(object):
                  max_input_decel=0.0, deadband=0.0, fuel_capacity=0.0,
                  wheel_radius=0.0):
         '''
+        Initializes the controller object
         '''
 
         # Steering controller
@@ -47,7 +48,6 @@ class Controller(object):
                                                  max_steer_angle=max_steer_angle)
 
         # Throttle/Brake Controller
-        # PID(kp=0.2, ki=0.0004, kd=5.0, mn=-1.0, mx=1.0)
         self.throttle_controller = VelocityController(
                                         vehicle_mass=vehicle_mass,
                                         max_accel=max_accel,
@@ -68,21 +68,49 @@ class Controller(object):
 
     def set_current_linear_velocity(self, vel=0):
         '''
+        Sets the current linear velocity of the vehicle for the controller
+        to use
+
+        Returns:
+            float: vel - the current linear velocity (m/s)
+
+        Complexity: O(1)
         '''
         self.cur_linear_velocity = vel
 
     def set_current_angular_velocity(self, vel=0):
         '''
+        Sets the current angular velocity of the vehicle for the controller
+        to use
+
+        Returns:
+            float: vel - the current angular velocity (m/s)
+
+        Complexity: O(1)
         '''
         self.cur_angular_velocity = vel
 
     def set_linear_velocity_cmd(self, vel=0):
         '''
+        Sets the target linear velocity of the vehicle for the controller
+        to use
+
+        Returns:
+            float: vel - the target linear velocity (m/s)
+
+        Complexity: O(1)
         '''
         self.target_linear_velocity = vel
 
     def set_angular_velocity_cmd(self, vel=0):
         '''
+        Sets the target angular velocity of the vehicle for the controller
+        to use
+
+        Returns:
+            float: vel - the target angular velocity (m/s)
+
+        Complexity: O(1)
         '''
         self.target_angular_velocity = vel
 
@@ -109,7 +137,6 @@ class Controller(object):
                                          )
 
         # Run throttle controller
-        t_err = self.target_linear_velocity - self.cur_linear_velocity
         throttle, brake = self.throttle_controller.get_throttle_brake(
                                                       self.target_linear_velocity,
                                                       self.target_angular_velocity,
