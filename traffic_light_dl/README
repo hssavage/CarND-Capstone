@@ -1,0 +1,35 @@
+#Build the DockerFile
+
+sudo docker build -t jlclemon/google_obj:latest .
+
+#Running with nvidia-docker2  (to run with Ipython instead just omit the bash command)
+sudo docker run --runtime=nvidia -p 6006:6006 -p 8888:8888 -v $PWD:/workspace --name=google_api_training_udacity_final -it jlclemon/google_obj:latest bash
+
+sudo docker run --runtime=nvidia -p 6006:6006 -v $PWD:/workspace --name=google_api_training_udacity_final -it jlclemon/google_obj:latest bash
+
+
+
+
+#Done inside the image
+
+#Creating the TFRecordFiles:
+
+python parse_traffic_light_data_set.py --output_path=/workspace/data/bosch_traffic_light_train.record --input_yaml_path=./train.yaml --max_num_examples=6000
+
+python parse_traffic_light_data_set.py --output_path=/workspace/data/bosch_traffic_light_val.record --input_yaml_path=./test.yaml --max_num_examples=500 --image_base_path=./rgb/test
+
+
+Running the training
+
+#remove the line with the around 110
+#/tensorflow/models/research/object_detection/data_decoders/tf_example_decoder.py", line 110
+# delete the #dct_method=dct_method
+# I use nano -c /tensorflow/models/research/object_detection/data_decoders/tf_example_decoder.py
+nano -c /tensorflow/models/research/object_detection/data_decoders/tf_example_decoder.py
+
+
+#from /tensorflow/models/research
+
+python object_detection/train.py --logtostderr --pipeline_config_path=/workspace/models/mobilenet_ssd/bosch_traffic_dataset.config --train_dir=/workspace/models/mobilenet_ssd/train/
+
+
