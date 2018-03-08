@@ -15,6 +15,26 @@ flags.DEFINE_string('image_base_path', '', 'base path to images')
 FLAGS = flags.FLAGS
 
 
+LABEL_DICT =  {
+    "Green" : 1,
+    "Red" : 3,
+    "GreenLeft" : 1,
+    "GreenRight" : 1,
+    "RedLeft" : 3,
+    "RedRight" : 3,
+    "Yellow" : 2,
+    "off" : 3,
+    "RedStraight" : 3,
+    "GreenStraight" : 1,
+    "GreenStraightLeft" : 1,
+    "GreenStraightRight" : 1,
+    "RedStraightLeft" : 3,
+    "RedStraightRight" : 3
+    }
+
+
+
+
 def get_dict(filename):
     
 
@@ -34,24 +54,25 @@ def get_tf_example(example_data, image_base_path):
 #    _, file_extension = os.path.splitext(example_data['path'])
     #print('filename_base', filename_base, ' ext: ', file_extension)
     filename = example_data['path'] # Filename of the image. Empty if image is not from file
-
+	
     if not image_base_path =='':
         base_image_name = os.path.basename(filename)
         filename = image_base_path + '/'+ base_image_name
 
     with tf.gfile.GFile(filename, 'rb') as fid:
         encoded_image_data = fid.read()
-        
+    filename=filename.encode()
 
     #encoded_image_data = io.BytesIO(encoded_png)
     #image = PIL.Image.open(encoded_image_data)
 
     #encoded_image_data = None # Encoded image bytes
 
-    _, file_extension = os.path.splitext(filename)
-    file_extension = file_extension[1:]
-    print('file_extension: ', file_extension)
-    image_format = file_extension.encode() # b'jpeg' or b'png'
+    #_, file_extension = os.path.splitext(filename)
+    #file_extension = file_extension[1:]
+    #print('file_extension: ', file_extension)
+    image_format = 'png'.encode()
+    #file_extension.encode() # b'jpeg' or b'png'
 
     xmins = [] # List of normalized left x coordinates in bounding box (1 per box)
     xmaxs = [] # List of normalized right x coordinates in bounding box
@@ -69,21 +90,15 @@ def get_tf_example(example_data, image_base_path):
         xmaxs.append(box['x_max']/width)        
         ymins.append(box['y_min']/height)        
         ymaxs.append(box['y_max']/height)        
-        classes_text.append(box['label'].encode('utf8'))
-        if(box['label'] == 'Green'):
-            class_idx = 1
-        elif(box['label'] == 'Yellow'):
-            class_idx = 2            
-        else:
-            class_idx = 3
-        classes.append(class_idx)
+        classes_text.append(box['label'].encode())
+        classes.append(int(LABEL_DICT[box['label']]))
 
 
     tf_example = tf.train.Example(features=tf.train.Features(feature={
         'image/height': dataset_util.int64_feature(height),
         'image/width': dataset_util.int64_feature(width),
-        'image/filename': dataset_util.bytes_feature(filename.encode('utf8')),
-        'image/source_id': dataset_util.bytes_feature(filename.encode('utf8')),
+        'image/filename': dataset_util.bytes_feature(filename),
+        'image/source_id': dataset_util.bytes_feature(filename),
         'image/encoded': dataset_util.bytes_feature(encoded_image_data),
         'image/format': dataset_util.bytes_feature(image_format),
         'image/object/bbox/xmin': dataset_util.float_list_feature(xmins),
