@@ -49,12 +49,24 @@
 # | 2/22/2018          | Henry Savage  | Initial pass on the code based on  | #
 # |                    |               | pointers in online and diagrams    | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/09/2018          | Henry Savage  | Added traffic_waypoint handling.   | #
+# |                    |               | Added max velocity watching.       | #
+# +--------------------+---------------+------------------------------------+ #
+# | 3/13/2018          | Henry Savage  | Updated waypoint publish rate      | #
+# |                    |               |                                    | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
+# ROS core stuff
 import rospy
+
+# Data types
+from std_msgs.msg import Int32
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
+
+# Our waypoint planner
 from planning import PathPlanner, PathPlannerException
 
 '''
@@ -72,8 +84,8 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 100 # Number of waypoints we will publish. You can change this number
-
+LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
+KPH_TO_MPS = (1000.0 / 3600.0)
 
 class WaypointUpdater(object):
     def __init__(self):
@@ -82,19 +94,20 @@ class WaypointUpdater(object):
         rospy.init_node('waypoint_updater')
 
         # Get parameters we need
-        #max_velocity = rospy.get_param('~velocity')
+        # NOTE: Sim default looks to be ~25 MPH
+        max_velocity = rospy.get_param('/waypoint_loader/velocity', 0.0) * KPH_TO_MPS
 
         # Define the data that will come into this node
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
-        #rospy.Subscriber('/traffic_waypoint', Int32, self.waypoints_cb)
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_light_cb)
         #rospy.Subscriber('/obstacle_waypoint', Lane, self.waypoints_cb)
 
         # Define the data that is exiting this node
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
         # Define our PathPlanner object that will do all the heavy lifting
-        self.planner = PathPlanner()
+        self.planner = PathPlanner(speed_limit=max_velocity)
 
         # Keep track of header meta data
         self.frame_id = None
@@ -158,13 +171,14 @@ class WaypointUpdater(object):
         waypoints.waypoints[].twist.twist.angular.y
         waypoints.waypoints[].twist.twist.angular.z
         '''
-
         self.planner.set_waypoints(waypoints.waypoints)
         self.frame_id = waypoints.header.frame_id
 
-    def traffic_cb(self, msg):
-        # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+    def traffic_light_cb(self, msg):
+        '''
+        Callback for /traffic_waypoint message.
+        '''
+        self.planner.set_traffic_light_wp(msg.data)
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it
@@ -189,7 +203,7 @@ class WaypointUpdater(object):
         '''
 
         # Set the refresh rate
-        rate = rospy.Rate(10)
+        rate = rospy.Rate(2)
 
         # Use the start time sentinel to know when to start processing
         start_time = 0

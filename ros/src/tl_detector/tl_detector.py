@@ -52,6 +52,10 @@
 # |                    |               | data so downstream nodes can do    | #
 # |                    |               | development in parallel            | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/13/2018          | Henry Savage  | Updated publish rate to 5hz as the | #
+# |                    |               | documentation from above suggests  | #
+# |                    |               | (it was 1hz previously)            | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -107,7 +111,7 @@ class TLDetector(object):
         '''
 
         # Set the refresh rate in Hz
-        rate = rospy.Rate(1)
+        rate = rospy.Rate(5)
 
         # Use the start time sentinel to know when to start processing
         start_time = 0

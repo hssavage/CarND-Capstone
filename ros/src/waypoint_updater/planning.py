@@ -14,8 +14,19 @@
 # +--------------------+---------------+------------------------------------+ #
 # | 2/22/2018          | Henry Savage  | Initial pass on the code           | #
 # +--------------------+---------------+------------------------------------+ #
+# | 2/22/2018          | Henry Savage  | Added acceleration values to help  | #
+# |                    |               | comfortably reduce speed at stop   | #
+# |                    |               | lights. Added a hook to update the | #
+# |                    |               | planners traffic light status. Now | #
+# |                    |               | handle slowing down and stopping   | #
+# |                    |               | a given stop index.                | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
+
+# TODO:
+#  - Pick adequate deceleration values (or fix how we do it) so we can
+#    consistently stop at traffic lights on time
 
 # Might not need this in the end, currently using it for logging
 # We could provide a transparent logging interface instead?
@@ -23,6 +34,9 @@ import rospy
 
 # Used for the sqrt, sin, cos functions
 from math import sin, cos, sqrt
+
+# Used to deep copy waypoint objects so we don't edit the reference points
+from copy import deepcopy
 
 # Transform library, used to make quaternion transforms from the pose data type
 from tf.transformations import euler_from_quaternion
@@ -48,7 +62,8 @@ class PathPlanner():
     '''
     '''
 
-    def __init__(self, vehicle_pose=None, waypoints=None, speed_limit=None):
+    def __init__(self, vehicle_pose=None, waypoints=None, speed_limit=None,
+                 max_decel=-3.0, max_accel=10.0):
         '''
         Initializes the PathPlanner object with optional current vehicle
         position and list of waypoints
@@ -60,6 +75,10 @@ class PathPlanner():
         # Max allowed speed
         self.speed_limit = speed_limit
 
+        # Max allowed acceleration and deceleration values, enforce signs
+        self.max_decel = max_decel if max_decel <= 0 else -1.0*max_decel
+        self.max_accel = max_accel if max_accel >= 0 else -1.0*max_accel
+
         # The current up to date position (location + orientation) of the
         # vehicle
         self.vehicle_pose = vehicle_pose
@@ -67,6 +86,10 @@ class PathPlanner():
         # Keep track of closest waypoints to our pose
         self.closest_behind = -1
         self.closest_in_front = -1
+
+        # Keep track of a target stop point from the traffic light node or
+        # obstacle node
+        self.traffic_light_ind = -1
 
     def set_vehicle_pose(self, pose):
         '''
@@ -94,6 +117,12 @@ class PathPlanner():
         # and the pose
         if(self.vehicle_pose != None):
             self.__set_closest_waypoints()
+
+    def set_traffic_light_wp(self, wp_ind):
+        '''
+        Handle a red traffic light waypoint
+        '''
+        self.traffic_light_ind = wp_ind
 
     def set_speed_limit(self, vel):
         '''
@@ -196,6 +225,67 @@ class PathPlanner():
 
         return (n_x <= 0)
 
+    def __stop_at_ind(self, stop_ind, waypoints):
+        '''
+        Bring the vehicle to a stop by the given stop index.
+
+        This function works backwards from "stop_ind", using kinematics to set
+        the speed at each waypoint. It assumes 0 at 'stop_ind' and will stop
+        when the desired speed is greater than or equal to the existing speed
+        of a waypoint. All points after stop ind are set to zero
+
+        Args:
+            stop_ind: <int> Index in the following set of waypoints to stop at
+            waypoints: list<Waypoint> List of waypoints we're following, 0th is
+                       our next waypoint to arrive at
+        Returns:
+            list<Waypoint> list of modified waypoints where the target velocity
+            values have all been adjusted such that the vehicle will stop
+
+        Complexity: O(n) where n is the number of waypoints
+        '''
+
+        # Check inputs
+        if(waypoints is None):
+            raise PathPlannerException("Given set of waypoints is None")
+        if(stop_ind < 0 or stop_ind >= len(waypoints)):
+            raise PathPlannerException("Stop index is out of bounds given the set of waypoints")
+
+        # Book keeping variables for managing state and working backwards
+        vf = 0.0
+        vi = 0.0
+        d = 0.0
+        a = self.max_decel
+
+        # Iterate on the list in reverse order
+        for i in reversed(range(0, len(waypoints))):
+
+            # Target speed for the waypoint
+            orig_speed = waypoints[i].twist.twist.linear.x
+
+            # if the index is after the stop point, we should be at zero
+            if(i >= stop_ind):
+                waypoints[i].twist.twist.linear.x = 0.0
+
+            # If its between us and the stop ind then we need to start
+            # maintaining state and working backwards to change speeds
+            else:
+                d = self.__get_distance2d(waypoints[i].pose.pose.position,
+                                          waypoints[i + 1].pose.pose.position)
+                vi = sqrt((vf*vf) - (2.0 * a * d))
+                if(vi >= orig_speed):
+                    return waypoints
+                waypoints[i].twist.twist.linear.x = vi
+                vf = vi
+
+        # Debug output of waypoints
+        # d_s = "\n"
+        # for i, wp in enumerate(waypoints[0:25]):
+        #     d_s += "\tw_" + str(i) + ": (" + str(wp.pose.pose.position.x) + ", " + str(wp.pose.pose.position.y) + ") -- v_lin: " + str(wp.twist.twist.linear.x) + ", v_ang: " + str(wp.twist.twist.angular.z) + "\n"
+        # rospy.loginfo(d_s)
+
+        return waypoints
+
     def get_next_waypoints(self, count):
         '''
         Returns the next <count> waypoints given the current vehicle pose and
@@ -211,7 +301,40 @@ class PathPlanner():
         if(self.vehicle_pose is None or self.waypoints is None or len(self.waypoints) == 0):
             raise PathPlannerException("Not enough information to find closest waypoint")
 
-        # Return the subset of way points
+        # Check count requested
+        if(count > len(self.waypoints)):
+            raise PathPlannerException("Count requested exceeds number of waypoints available")
+
+        # Get the subset of way points to return
+        tl_ind = self.traffic_light_ind
         s = self.closest_in_front
         e = min(self.closest_in_front + count, len(self.waypoints))
-        return self.waypoints[s:e]
+        waypoints = deepcopy(self.waypoints[s:e])
+
+        #rospy.loginfo("s: " + str(s) + ", e: " + str(e) + ", count: " + str(count) + ", next_light (global): " + str(tl_ind))
+
+        # Check wrap around and fix e to be relative in case we need it
+        # if(len(waypoints) < count and count <= len(self.waypoints)):
+        #     waypoints.extend(deepcopy(self.waypoints[0:(count - len(waypoints))]))
+        #     e = s + count
+        #
+        # Adjust traffic index for wrap around
+        # if(tl_ind != -1 and s > tl_ind):
+        #     tl_ind += len(self.waypoints)
+        #     rospy.loginfo("next_light (gloabl, adjusted for wrap): " + str(tl_ind))
+
+        # Determine where in our set from [s:e] our wp is
+        #  and tl_ind >= s
+        if(tl_ind != -1):
+            tl_ind = tl_ind - s
+            #rospy.loginfo("next_light (local): " + str(tl_ind))
+
+            # Clamp stop index to 0 if it goes negative
+            # tl_ind = max(0, tl_ind)
+            # rospy.loginfo("next_light (local with safe stop buffer): " + str(tl_ind))
+
+            if(tl_ind <= len(waypoints)):
+                waypoints = self.__stop_at_ind(tl_ind, waypoints)
+
+        # return final adjusted waypoints
+        return waypoints

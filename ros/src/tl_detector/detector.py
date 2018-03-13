@@ -16,6 +16,10 @@
 # |                    |               | code over from tl_detector.py. The | #
 # |                    |               | SimDetector can record images.     | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/13/2018          | Henry Savage  | Added comments to some functions.  | #
+# |                    |               | Also checked for null waypoints    | #
+# |                    |               | list in the SimDetector.           | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -61,6 +65,21 @@ class BaseDetector(object):
         '''
         The default constructor for the BaseDetector class. Defines all the
         high level objects that should be needed for a traffic light detector
+
+        TODO: Can some of these maybe go away? Do we need to all of them?
+
+            vehicle_pose: <Pose Msg Object> Optional argument to set current
+                          vehicle position and orientation.
+            waypoints: <Waypoints Object List> Optional argument to set the
+                       list of base waypoints.
+            lights_config: <Dictionary> A Configuration object containing
+                           traffic light stop line info and camera info
+                           TODO: We can probably break this up
+            image: <Image Msg Object> Optional argument to set the image
+            light_pose: <Pose Msg Object> Optional argument to set the light
+                        position.
+            light_status: <Int> Optional argument to set the initial light
+                          state
         '''
 
         # The vehicle's most up to date pose information
@@ -77,6 +96,8 @@ class BaseDetector(object):
         self.image = image
 
         # To translate the image message to a cv2 image
+        # TODO: Do we want this here, or do we want to assume we're being
+        # GIVEN a cv2 compatible image?
         self.bridge = CvBridge()
 
         # The most up to date traffic light state
@@ -126,7 +147,7 @@ class SimDetector(BaseDetector):
 
         Takes all the normal parameters from the base class, plus:
             save_data - [True | False] True, if you want to save image data
-            save_path - [<string>] Directory location to save data to
+            save_path - <string> Directory location to save data to
         '''
 
         # Call the super class init function
@@ -151,6 +172,7 @@ class SimDetector(BaseDetector):
         # the data collection directory to save images to
         if(exists(self.save_path) and isfile(self.save_path)):
             self.save_data = False
+            rospy.logwarn("Given path is an existing file. Image capture has been turned off.")
         else:
             self.save_path = self.save_path + "/images_" + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
             mkpath(self.save_path)
@@ -185,6 +207,10 @@ class SimDetector(BaseDetector):
         # without a a vehicle position is pointless. We can
         # wait until we have a vehicle position
         if(self.vehicle_pose is None):
+            return
+
+        # Same goes for waypoints
+        if(self.waypoints is None):
             return
 
         # Grab the up to date light statuses
@@ -336,7 +362,7 @@ class Detector(BaseDetector):
         if(self.pose):
             car_position = self.get_closest_waypoint(self.vehicle_pose)
 
-        #TODO find the closest visible traffic light (if one exists)
+        # TODO find the closest visible traffic light (if one exists)
         # ... light_wp = ?
 
         if light:

@@ -15,6 +15,11 @@
 # +--------------------+---------------+------------------------------------+ #
 # | 2/27/2018          | Henry Savage  | Initial pass on the code           | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/13/2018          | Henry Savage  | Updated max *celeration values to  | #
+# |                    |               | always use the properly signed     | #
+# |                    |               | values -- fixed a bug where the    | #
+# |                    |               | vehicle wouldn't brake             | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -39,10 +44,18 @@ class VelocityController(object):
         self.wheel_radius = wheel_radius
         self.deadband = deadband
 
-        # Vehicle limit constants
-        max_accel_torque = wheel_radius * max_accel * self.total_vehicle_mass
+        # Acceleration limit
         self.max_accel = max_accel # Actual acceleration value threshold (m/s^2)
         self.max_decel = max_decel # Actual deceleration value threshold (m/s^2)
+
+        # Force signs
+        if(self.max_accel < 0):
+            self.max_accel *= -1
+        if(self.max_decel > 0):
+            self.max_decel *= -1
+
+        # Torque limits
+        max_accel_torque = self.wheel_radius * self.max_accel * self.total_vehicle_mass
         self.max_accel_input = max_input_accel # Max input to the DBW system
         self.max_accel_torque = max_accel_torque # Max acceleration Torque (Nm)
         self.max_decel_torque = max_input_decel # Max deceleration Torque (Nm)
@@ -59,6 +72,7 @@ class VelocityController(object):
         '''
         self.fuel_percentage = fuel_percentage
         self.total_vehicle_mass = self.vehicle_mass + (self.fuel_weight * GAS_DENSITY * self.fuel_percentage)
+        self.max_accel_torque = self.wheel_radius * self.max_accel * self.total_vehicle_mass
 
     def get_throttle_brake(self, linear_velocity, angular_velocity, current_velocity):
         '''

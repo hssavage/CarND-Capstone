@@ -52,6 +52,10 @@
 # +--------------------+---------------+------------------------------------+ #
 # | 2/24/2018          | Henry Savage  | Initial pass on the code based on  | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/13/2018          | Henry Savage  | Fixed the sign on max deceleration | #
+# |                    |               | and updated target velocity        | #
+# |                    |               | interface.                         | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -101,7 +105,7 @@ class DBWNode(object):
         decel_input_limit = rospy.get_param('~decel_limit', -5) # Torque value
         accel_input_limit = rospy.get_param('~accel_limit', 1.) # Percent engaged value
         accel_limit = 10.0
-        decel_limit = 10.0
+        decel_limit = -10.0
         wheel_radius = rospy.get_param('~wheel_radius', 0.2413)
         wheel_base = rospy.get_param('~wheel_base', 2.8498)
         steer_ratio = rospy.get_param('~steer_ratio', 14.8)
@@ -160,8 +164,9 @@ class DBWNode(object):
         cmd.twist.angular.y -- pitch
         cmd.twist.angular.z -- yaw
         '''
-        self.controller.set_linear_velocity_cmd(vel=cmd.twist.linear.x)
-        self.controller.set_angular_velocity_cmd(vel=cmd.twist.angular.z)
+        # rospy.loginfo("Command -- lin: " + str(cmd.twist.linear.x) + ", ang: " + str(cmd.twist.angular.z))
+        self.controller.set_target_linear_velocity(vel=cmd.twist.linear.x)
+        self.controller.set_target_angular_velocity(vel=cmd.twist.angular.z)
 
     def current_velocity_cb(self, vel):
         '''

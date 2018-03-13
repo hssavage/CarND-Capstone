@@ -21,8 +21,14 @@
 # | 2/28/2018          | Henry Savage  | Remove a few irrelevant lines of   | #
 # |                    |               | code and added comments            | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/13/2018          | Henry Savage  | Changed twist cmd update interface | #
+# |                    |               | to "set_target_*" for clarity      | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
+
+# Debug prints - to be removed
+import rospy
 
 # For steering control
 from yaw_controller import YawController
@@ -90,7 +96,7 @@ class Controller(object):
         '''
         self.cur_angular_velocity = vel
 
-    def set_linear_velocity_cmd(self, vel=0):
+    def set_target_linear_velocity(self, vel=0):
         '''
         Sets the target linear velocity of the vehicle for the controller
         to use
@@ -102,7 +108,7 @@ class Controller(object):
         '''
         self.target_linear_velocity = vel
 
-    def set_angular_velocity_cmd(self, vel=0):
+    def set_target_angular_velocity(self, vel=0):
         '''
         Sets the target angular velocity of the vehicle for the controller
         to use
