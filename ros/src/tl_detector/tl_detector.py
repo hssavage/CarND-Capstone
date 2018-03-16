@@ -56,6 +56,10 @@
 # |                    |               | documentation from above suggests  | #
 # |                    |               | (it was 1hz previously)            | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/15/2018          | Henry Savage  | Made the traffic_waypoint report   | #
+# |                    |               | a negative version of the next     | #
+# |                    |               | light as opposed to always -1      | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -92,7 +96,7 @@ class TLDetector(object):
         lights_config = yaml.load(config_string)
 
         # Main detector object
-        self.detector = SimDetector(lights_config=lights_config, save_path="training_data")
+        self.detector = SimDetector(lights_config=lights_config) #, save_path="training_data")
 
         # Data we're subscribing to
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -128,7 +132,7 @@ class TLDetector(object):
 
             # If its not a red light, we dont have a stopping waypoint
             if(light_status != TrafficLight.RED):
-                light_ind = -1
+                light_ind *= -1
 
             # Publish the traffic light status
             # light_ind will be where we want to stop. If its a -1 then

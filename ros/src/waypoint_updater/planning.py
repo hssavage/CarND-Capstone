@@ -21,6 +21,9 @@
 # |                    |               | handle slowing down and stopping   | #
 # |                    |               | a given stop index.                | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/15/2018          | Henry Savage  | Changed red light logic from       | #
+# |                    |               | '!= -1' to '> 0'                   | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -325,7 +328,7 @@ class PathPlanner():
 
         # Determine where in our set from [s:e] our wp is
         #  and tl_ind >= s
-        if(tl_ind != -1):
+        if(tl_ind > 0):
             tl_ind = tl_ind - s
             #rospy.loginfo("next_light (local): " + str(tl_ind))
 

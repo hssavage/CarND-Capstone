@@ -55,6 +55,10 @@
 # | 3/13/2018          | Henry Savage  | Updated waypoint publish rate      | #
 # |                    |               |                                    | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/15/2018          | Henry Savage  | Added debug printing, which can be | #
+# |                    |               | enabled by adding the output attr  | #
+# |                    |               | to the launch file                 | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -84,8 +88,123 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
+###############################################################################
+# DEBUG FUNCTIONS                                                             #
+###############################################################################
+
+from tf.transformations import euler_from_quaternion
+
+def get_euler(quat_orient):
+    '''
+    Returns the yaw, pitch and roll values from a quaternion orientation
+
+    Returns:
+        list<float>: [pitch, roll, yaw]
+
+    Complexity: O(1)
+    '''
+    return euler_from_quaternion([quat_orient.x, quat_orient.y,
+                                  quat_orient.z, quat_orient.w])
+
+def red(msg):
+    '''
+    Format text as red
+    '''
+    return "\033[0;31m" + msg + "\033[0m"
+
+def green(msg):
+    '''
+    Format text as green
+    '''
+    return "\033[0;32m" + msg + "\033[0m"
+
+def purple(msg):
+    '''
+    Format text as purple
+    '''
+    return "\033[0;35m" + msg + "\033[0m"
+
+def term_map(cur_wp, tl_wp, tl_status, wps, x_size=100, y_size=60):
+    '''
+    '''
+
+    # Error check
+    if(wps is None):
+        return ""
+
+    # Bounds of map
+    X_MAX = 2400.0
+    Y_MAX = 3200.0
+
+    # Place map
+    frame = [[" "]*x_res for i in range(y_res)]
+    for wp in wps:
+        wp_x = wp.pose.pose.position.x
+        wp_y = wp.pose.pose.position.y
+        m_x = int((wp_x / X_MAX) * x_size)
+        m_y = int((wp_y / Y_MAX) * y_size)
+        # print("\t- (" + str(m_x) + ", " + str(m_y) + ")")
+        try:
+            frame[y_res - m_y][m_x] = '.'
+        except Exception:
+            pass
+
+    # Add next traffic light
+    if(tl_wp in range(0, len(wps))):
+        wp_x = wps[tl_wp].pose.pose.position.x
+        wp_y = wps[tl_wp].pose.pose.position.y
+        m_x = int((wp_x / X_MAX) * x_size)
+        m_y = int((wp_y / Y_MAX) * y_size)
+        if(tl_status == "red"):
+            frame[y_res - m_y][m_x] = red('o')
+        else:
+            frame[y_res - m_y][m_x] = green('o')
+
+    # Add current position
+    if(cur_wp in range(0, len(wps))):
+        wp_x = wps[cur_wp].pose.pose.position.x
+        wp_y = wps[cur_wp].pose.pose.position.y
+        m_x = int((wp_x / X_MAX) * x_size)
+        m_y = int((wp_y / Y_MAX) * y_size)
+        frame[y_res - m_y][m_x] = purple('x')
+
+    # Remove blank lines and return
+    frame_s = '\n'.join(["".join(s) if '.' in s else "" for s in frame]).strip("\n")
+    return frame_s
+
+def update_frame(s_limit, cur_x, cur_y, cur_z, s_angle, cur_wp, tl_wp, wps):
+    '''
+    Create a debug frame
+    '''
+    tl_status = "red"
+    if(tl_wp < 0):
+        tl_status = "green"
+        tl_wp *= -1
+    total_wps = len(wps) if wps != None else 0
+    frame = ""
+    frame += "Speed Limit: " + str(s_limit) + "kph | " + str(MPS_TO_MPH * s_limit) + "\n"
+    frame += "Current Position: (" + str(cur_x) + ", " + str(cur_y) + ", " + str(cur_z) + ")\n"
+    frame += "Current Steering Angle: " + str(s_angle) + " degrees\n"
+    frame += "Current Waypoint: " + str(cur_wp) + "/" + str(total_wps) + "\n"
+    frame += "Next Traffic Light: " + str(tl_wp) + "\n"
+    frame += "Next Traffic Status: " + str(tl_status) + "\n"
+    frame += term_map(cur_wp, tl_wp, tl_status, wps)
+    return frame
+
+def set_text_frame(msg):
+    '''
+    Clear the screen and replace it with the given message text frame
+    '''
+    s = "\033[?25l" + "\033[1J" + "\033[1;1H" + msg + "\033[?25h"
+    print(s)
+
+LOOKAHEAD_WPS = 100 # Number of waypoints we will publish. You can change this number
 KPH_TO_MPS = (1000.0 / 3600.0)
+MPS_TO_MPH = 2.236940
+
+###############################################################################
+# Waypoint Updater                                                            #
+###############################################################################
 
 class WaypointUpdater(object):
     def __init__(self):
@@ -224,6 +343,17 @@ class WaypointUpdater(object):
 
             # Publish
             self.pub_waypoints(next_waypoints)
+
+            # Debug output, gather status
+            s_limit = self.planner.speed_limit
+            cur_x = self.planner.vehicle_pose.position.x
+            cur_y = self.planner.vehicle_pose.position.y
+            cur_z = self.planner.vehicle_pose.position.z
+            _, _, s_angle = get_euler(self.planner.vehicle_pose.orientation)
+            cur_wp = self.planner.closest_in_front
+            tl_wp = self.planner.traffic_light_ind
+            frame = update_frame(s_limit, cur_x, cur_y, cur_z, s_angle, cur_wp, tl_wp, self.planner.waypoints)
+            set_text_frame(frame)
 
             # Sleep
             rate.sleep()

@@ -20,6 +20,9 @@
 # |                    |               | Also checked for null waypoints    | #
 # |                    |               | list in the SimDetector.           | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/15/2018          | Henry Savage  | Small update to image output       | #
+# |                    |               | location.                          | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -168,15 +171,15 @@ class SimDetector(BaseDetector):
         if(self.save_path != None):
             self.save_path = abspath(expanduser(self.save_path))
 
-        # See if the path exists or makes sense. If it does then make
-        # the data collection directory to save images to
-        if(exists(self.save_path) and isfile(self.save_path)):
-            self.save_data = False
-            rospy.logwarn("Given path is an existing file. Image capture has been turned off.")
-        else:
-            self.save_path = self.save_path + "/images_" + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            mkpath(self.save_path)
-            self.save_data = True
+            # See if the path exists or makes sense. If it does then make
+            # the data collection directory to save images to
+            if(exists(self.save_path) and isfile(self.save_path)):
+                self.save_data = False
+                rospy.logwarn("Given path is an existing file. Image capture has been turned off.")
+            else:
+                self.save_path = self.save_path + "/images_" + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+                mkpath(self.save_path)
+                self.save_data = True
 
         # Subscribe to the ground truth data secretly here
         rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray,
