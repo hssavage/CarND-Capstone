@@ -137,7 +137,7 @@ def term_map(cur_wp, tl_wp, tl_status, wps, x_size=100, y_size=60):
     Y_MAX = 3200.0
 
     # Place map
-    frame = [[" "]*x_res for i in range(y_res)]
+    frame = [[" "]*x_res for i in range(y_size)]
     for wp in wps:
         wp_x = wp.pose.pose.position.x
         wp_y = wp.pose.pose.position.y
