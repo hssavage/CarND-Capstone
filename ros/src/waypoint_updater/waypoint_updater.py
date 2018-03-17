@@ -137,7 +137,7 @@ def term_map(cur_wp, tl_wp, tl_status, wps, x_size=100, y_size=60):
     Y_MAX = 3200.0
 
     # Place map
-    frame = [[" "]*x_res for i in range(y_size)]
+    frame = [[" "]*x_size for i in range(y_size)]
     for wp in wps:
         wp_x = wp.pose.pose.position.x
         wp_y = wp.pose.pose.position.y
@@ -145,7 +145,7 @@ def term_map(cur_wp, tl_wp, tl_status, wps, x_size=100, y_size=60):
         m_y = int((wp_y / Y_MAX) * y_size)
         # print("\t- (" + str(m_x) + ", " + str(m_y) + ")")
         try:
-            frame[y_res - m_y][m_x] = '.'
+            frame[y_size - m_y][m_x] = '.'
         except Exception:
             pass
 
@@ -156,9 +156,9 @@ def term_map(cur_wp, tl_wp, tl_status, wps, x_size=100, y_size=60):
         m_x = int((wp_x / X_MAX) * x_size)
         m_y = int((wp_y / Y_MAX) * y_size)
         if(tl_status == "red"):
-            frame[y_res - m_y][m_x] = red('o')
+            frame[y_size - m_y][m_x] = red('o')
         else:
-            frame[y_res - m_y][m_x] = green('o')
+            frame[y_size - m_y][m_x] = green('o')
 
     # Add current position
     if(cur_wp in range(0, len(wps))):
@@ -166,7 +166,7 @@ def term_map(cur_wp, tl_wp, tl_status, wps, x_size=100, y_size=60):
         wp_y = wps[cur_wp].pose.pose.position.y
         m_x = int((wp_x / X_MAX) * x_size)
         m_y = int((wp_y / Y_MAX) * y_size)
-        frame[y_res - m_y][m_x] = purple('x')
+        frame[y_size - m_y][m_x] = purple('x')
 
     # Remove blank lines and return
     frame_s = '\n'.join(["".join(s) if '.' in s else "" for s in frame]).strip("\n")
