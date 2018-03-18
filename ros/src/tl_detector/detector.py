@@ -23,6 +23,13 @@
 # | 3/15/2018          | Henry Savage  | Small update to image output       | #
 # |                    |               | location.                          | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/17/2018          | Henry Savage  | Changed the fake TL reporting to   | #
+# |                    |               | a new method where I precompute    | #
+# |                    |               | the closest traffic light number,  | #
+# |                    |               | waypoint for that light and the    | #
+# |                    |               | waypoint for the associated stop   | #
+# |                    |               | line.                              | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -63,8 +70,7 @@ class BaseDetector(object):
     the simulated detector and the "real" detector
     '''
 
-    def __init__(self, vehicle_pose=None, waypoints=None, lights_config=None,
-                 image=None, light_pose=-1, light_state=TrafficLight.UNKNOWN):
+    def __init__(self, vehicle_pose=None, waypoints=None, lights_config=None):
         '''
         The default constructor for the BaseDetector class. Defines all the
         high level objects that should be needed for a traffic light detector
@@ -77,12 +83,7 @@ class BaseDetector(object):
                        list of base waypoints.
             lights_config: <Dictionary> A Configuration object containing
                            traffic light stop line info and camera info
-                           TODO: We can probably break this up
-            image: <Image Msg Object> Optional argument to set the image
-            light_pose: <Pose Msg Object> Optional argument to set the light
-                        position.
-            light_status: <Int> Optional argument to set the initial light
-                          state
+                           TODO: We can probably break this up?
         '''
 
         # The vehicle's most up to date pose information
@@ -96,7 +97,7 @@ class BaseDetector(object):
         self.lights = {}
 
         # The most up to date camera image
-        self.image = image
+        self.image = None
 
         # To translate the image message to a cv2 image
         # TODO: Do we want this here, or do we want to assume we're being
@@ -104,9 +105,9 @@ class BaseDetector(object):
         self.bridge = CvBridge()
 
         # The most up to date traffic light state
-        self.light_pose = light_pose
+        self.light_id = -1
         self.light_ind = -1
-        self.light_state = light_state
+        self.light_state = TrafficLight.UNKNOWN
 
     def set_vehicle_pose(self, pose):
         '''
@@ -143,24 +144,26 @@ class SimDetector(BaseDetector):
     '''
 
     def __init__(self,vehicle_pose=None, waypoints=None, lights_config=None,
-                 image=None, light_pose=-1, light_state=TrafficLight.UNKNOWN,
                  save_path=None):
         '''
         Detector constructor
 
         Takes all the normal parameters from the base class, plus:
-            save_data - [True | False] True, if you want to save image data
-            save_path - <string> Directory location to save data to
+            save_path - <string> Directory location to save data to, None
+                        if you dont want to save any data
         '''
 
         # Call the super class init function
         BaseDetector.__init__(self,
                               vehicle_pose=vehicle_pose,
                               waypoints=waypoints,
-                              lights_config=lights_config,
-                              image=image,
-                              light_pose=light_pose,
-                              light_state=TrafficLight.UNKNOWN)
+                              lights_config=lights_config)
+
+        # Cache the next light/stop line for each waypoint
+        self.next_light = None
+
+        # Which waypoint are we closests to?
+        self.closest_wp = -1
 
         # Do we want to gather training data?
         self.save_data = False
@@ -185,6 +188,45 @@ class SimDetector(BaseDetector):
         rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray,
                          self.vehicle_traffic_lights_cb, queue_size=1)
 
+    def set_vehicle_pose(self, pose):
+        '''
+        Set the current vehicle pose
+        '''
+        self.vehicle_pose = pose
+
+        # We cant determine the closest waypoint if we dont have any
+        if(self.waypoints is None):
+            return
+
+        # Set the vehicle's x, y, and yaw
+        v_x = pose.position.x
+        v_y = pose.position.y
+
+        # Determine closest waypoint
+        c_wp = -1
+        c_dist = -1
+        for i in range(0, len(self.waypoints)):
+            w_x = self.waypoints[i].pose.pose.position.x
+            w_y = self.waypoints[i].pose.pose.position.y
+            dist = sqrt((v_x - w_x)**2 + (v_y - w_y)**2)
+            if(dist < c_dist or c_dist == -1):
+                c_dist = dist
+                c_wp = i
+
+        # Set the closest waypoint
+        self.closest_wp = c_wp
+
+    def set_waypoints(self, waypoints):
+        '''
+        Set the current waypoint list
+        '''
+        self.waypoints = waypoints
+
+        # Once we have waypoints, try to calculate and cache the index of
+        # the next traffic light for each waypoint.
+        if(self.next_light is None):
+            self.set_next_lights()
+
     def vehicle_traffic_lights_cb(self, msg):
         '''
         Callback for the ground truth traffic light data
@@ -206,89 +248,107 @@ class SimDetector(BaseDetector):
         msg.lights[].pose.pose.orientation.w
         '''
 
-        # Because of what I'm about to do, having a light list
-        # without a a vehicle position is pointless. We can
-        # wait until we have a vehicle position
-        if(self.vehicle_pose is None):
-            return
-
-        # Same goes for waypoints
-        if(self.waypoints is None):
-            return
-
-        # Grab the up to date light statuses
+        # Set the up to date light statuses
         self.lights = msg.lights
 
-        # Transform light (X,Y) to vehicle coords
-        o_x = self.vehicle_pose.position.x
-        o_y = self.vehicle_pose.position.y
-        o_z = self.vehicle_pose.position.z
-        _, _, o_theta = euler_from_quaternion([self.vehicle_pose.orientation.x,
-                                              self.vehicle_pose.orientation.y,
-                                              self.vehicle_pose.orientation.z,
-                                              self.vehicle_pose.orientation.w])
+        # Once we have lights, try to calculate and cache the index of
+        # the next traffic light for each waypoint.
+        if(self.next_light is None):
+            self.set_next_lights()
+            return
 
-        # Do a coordinate shift on the light set so its relative to us
-        # Find the closest light in front of us as well while we're doing it
-        l_x = 0
-        l_y = 0
-        c_i = None
-        c_dist = None
-        for i in range(0, len(self.lights)):
-
-            # Light World coords
-            l_x = self.lights[i].pose.pose.position.x
-            l_y = self.lights[i].pose.pose.position.y
-            l_z = self.lights[i].pose.pose.position.z
-
-            # Origin shift
-            n_x = l_x - o_x
-            n_y = l_y - o_y
-            n_z = l_z - o_z
-
-            # Rotation shift
-            n_x = n_x * cos(0 - o_theta) - n_y * sin(0 - o_theta)
-            n_y = n_y * cos(0 - o_theta) + n_x * sin(0 - o_theta)
-
-            # No looking backwards
-            if(n_x < 0):
-                continue
-
-            # Set value
-            self.lights[i].pose.pose.position.x = n_x
-            self.lights[i].pose.pose.position.y = n_y
-            self.lights[i].pose.pose.position.z = n_z
-
-            # Set closest traffic light
-            dist = sqrt((0 - n_x)**2 + (0 - n_y)**2)
-            if(c_dist is None or c_dist > dist):
-                c_dist = dist
-                c_i = i
-
-        # Find the traffic light stop line waypoint (x, y)
-        sl_x = self.lights_config['stop_line_positions'][c_i][0]
-        sl_y = self.lights_config['stop_line_positions'][c_i][1]
-
-        # Which base waypoint is closest?
-        # TODO: We can cache this since the lights dont move
-        wp = -1
-        wp_dist = None
-        for i in range(0, len(self.waypoints)):
-            wp_x = self.waypoints[i].pose.pose.position.x
-            wp_y = self.waypoints[i].pose.pose.position.y
-            dist = sqrt((sl_x - wp_x)**2 + (sl_y - wp_y)**2)
-            if(wp_dist is None or dist < wp_dist):
-                wp = i
-                wp_dist = dist
+        # If we don't know where we are, we cant update the light status
+        if(self.closest_wp == -1):
+            return
 
         # Set final status
-        self.light_ind = wp
-        self.light_state = self.lights[c_i].state
+        self.light_ind = self.next_light[self.closest_wp][2]
+        self.light_state = self.lights[self.next_light[self.closest_wp][0]].state
 
-        # rospy.loginfo("Vehicle Position: (" + str(self.vehicle_pose.position.x) + ", " + str(self.vehicle_pose.position.y) + ")")
-        # rospy.loginfo("Closest Light " + str(c_i) + ": (" + str(self.lights[c_i].pose.pose.position.x) + ", " + str(self.lights[c_i].pose.pose.position.y) + ") -- State: " + str(self.lights[c_i].state))
-        # rospy.loginfo("Stop Line: (" + str(sl_x) + ", " + str(sl_y) + ")")
-        # rospy.loginfo("Stop waypoint: IND " + str(wp))
+    def set_next_lights(self):
+        '''
+        '''
+
+        # If we don't have waypoints or lights, we can't cache the next light
+        # per waypoint
+        if(self.waypoints is None or len(self.waypoints) == 0 or
+           self.lights is None or len(self.lights) == 0):
+            return
+
+        # First, init the next_light structure
+        self.next_light = [[-1, -1, -1] for i in range(0, len(self.waypoints))]
+
+        # Next, we're going to find the closest waypoint to each stop light
+        l_closest = [-1 for i in range(0, len(self.lights))]
+        for i in range(0, len(self.lights)):
+            l_x = self.lights[i].pose.pose.position.x
+            l_y = self.lights[i].pose.pose.position.y
+            c_wp = -1
+            c_dist = -1
+            for j in range(0, len(self.waypoints)):
+                w_x = self.waypoints[j].pose.pose.position.x
+                w_y = self.waypoints[j].pose.pose.position.y
+                dist = sqrt((l_x - w_x) * (l_x - w_x) + (l_y - w_y) * (l_y - w_y))
+
+                if(c_dist == -1 or c_dist > dist):
+                    c_dist = dist
+                    c_wp = j
+
+                if(c_dist == 0):
+                    break
+
+            l_closest[i] = c_wp
+
+        # Next, find the closest waypoint to each traffic light stop line
+        sl_closest = [-1 for i in range(0, len(self.lights))]
+        for i in range(0, len(self.lights)):
+            sl_x = self.lights_config['stop_line_positions'][i][0]
+            sl_y = self.lights_config['stop_line_positions'][i][1]
+
+            wp = -1
+            wp_dist = -1
+            for j in range(0, len(self.waypoints)):
+                w_x = self.waypoints[j].pose.pose.position.x
+                w_y = self.waypoints[j].pose.pose.position.y
+                dist = sqrt((sl_x - w_x) * (sl_x - w_x) + (sl_y - w_y) * (sl_y - w_y))
+                if(wp_dist == -1 or dist < wp_dist):
+                    wp = j
+                    wp_dist = dist
+
+                if(wp_dist == 0):
+                    break
+
+            sl_closest[i] = wp
+
+        # Next, do a single pass on the waypoints to set traffic light
+        # and stop line locations
+        for i in range(0, len(l_closest)):
+            self.next_light[l_closest[i]][0] = i             # light index
+            self.next_light[l_closest[i]][1] = l_closest[i]  # light wp
+            self.next_light[l_closest[i]][2] = sl_closest[i] # stop line wp
+
+        # Next, fill in the spots in between by going backwards
+        n_l = -1
+        n_wp = -1
+        n_sl = -1
+        for i in reversed(range(0, len(self.next_light))):
+            if(self.next_light[i][0] != -1):
+                n_l  = self.next_light[i][0]
+                n_wp = self.next_light[i][1]
+                n_sl = self.next_light[i][2]
+            else:
+                self.next_light[i][0] = n_l
+                self.next_light[i][1] = n_wp
+                self.next_light[i][2] = n_sl
+
+        # Handle the loop back case (though this may not matter)
+        i = len(self.next_light) - 1
+        while(self.next_light[i][0] == -1):
+            self.next_light[i] = self.next_light[0]
+            i -= 1
+
+        # for i in range(0, len(self.next_light)):
+        #     print(str(i) + ": " + str(self.next_light[i][0]) + ", " + str(self.next_light[i][1]) + ", " + str(self.next_light[i][2]))
 
     def set_image(self, image):
         '''
