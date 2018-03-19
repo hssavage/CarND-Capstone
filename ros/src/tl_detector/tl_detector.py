@@ -60,6 +60,10 @@
 # |                    |               | a negative version of the next     | #
 # |                    |               | light as opposed to always -1      | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/18/2018          | Jason Clemons | Adding in a stream of the detector | #
+# |                    |               | result so we can visualize as      | #
+# |                    |               | vehicle is traveling               | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -95,8 +99,12 @@ class TLDetector(object):
         config_string = rospy.get_param("/traffic_light_config")
         lights_config = yaml.load(config_string)
 
+        model_file_path = rospy.get_param("/traffic_light_detector_model") + '/frozen_inference_graph.pb'
+
+        print("Model File Path:", model_file_path)
+
         # Main detector object
-        self.detector = SimDetector(lights_config=lights_config) #, save_path="training_data")
+        self.detector = SimDetector(lights_config=lights_config, model_path=model_file_path) #, save_path="training_data")
 
         # Data we're subscribing to
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -105,6 +113,8 @@ class TLDetector(object):
 
         # Data we're publishing
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
+        self.traffic_light_detection_result_color = rospy.Publisher('/traffic_light_detection_result_color', Image, queue_size=1)
+
 
         # Run the control loop
         self.run()
@@ -138,6 +148,10 @@ class TLDetector(object):
             # light_ind will be where we want to stop. If its a -1 then
             # We don't need to stop
             self.upcoming_red_light_pub.publish(Int32(light_ind))
+
+            if (self.detector.detector_result_image_msg != None):
+                #Publish the marked up image
+                self.traffic_light_detection_result_color.publish(self.detector.detector_result_image_msg)
 
             # Sleep
             rate.sleep()

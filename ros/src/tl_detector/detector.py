@@ -30,6 +30,13 @@
 # |                    |               | waypoint for the associated stop   | #
 # |                    |               | line.                              | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/18/2018          | Jason Clemons | Added inference engine to the      | #
+# |                    |               | simulated traffic light detector.  | #
+# |                    |               | This will run inference if the     | #
+# |                    |               | flag is set.  This adds a publish  | #
+# |                    |               | channel of the marked up image     | #
+# |                    |               | result                             | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -56,9 +63,11 @@ from tf.transformations import euler_from_quaternion
 from os.path import exists, isfile, isdir, abspath, expanduser
 from distutils.dir_util import mkpath
 import datetime
-
 # Used for the sqrt, sin, cos functions
 from math import sin, cos, sqrt
+import numpy as np
+from tl_inference_engine import draw_bounding_boxes
+from tl_inference_engine import DetectionInferenceEngine
 
 #-----------------------------------------------------------------------------#
 # Base Detector                                                               #
@@ -70,7 +79,7 @@ class BaseDetector(object):
     the simulated detector and the "real" detector
     '''
 
-    def __init__(self, vehicle_pose=None, waypoints=None, lights_config=None):
+    def __init__(self, vehicle_pose=None, waypoints=None, lights_config=None, model_path=None):
         '''
         The default constructor for the BaseDetector class. Defines all the
         high level objects that should be needed for a traffic light detector
@@ -96,8 +105,18 @@ class BaseDetector(object):
         self.lights_config = lights_config
         self.lights = {}
 
+        #The path to the tf model to use
+        self.model_path = model_path
+
+
+
         # The most up to date camera image
         self.image = None
+
+
+        # The most up to date camera image
+        self.detector_result_image_msg = None
+
 
         # To translate the image message to a cv2 image
         # TODO: Do we want this here, or do we want to assume we're being
@@ -108,6 +127,7 @@ class BaseDetector(object):
         self.light_id = -1
         self.light_ind = -1
         self.light_state = TrafficLight.UNKNOWN
+
 
     def set_vehicle_pose(self, pose):
         '''
@@ -144,7 +164,7 @@ class SimDetector(BaseDetector):
     '''
 
     def __init__(self,vehicle_pose=None, waypoints=None, lights_config=None,
-                 save_path=None):
+                 save_path=None, model_path=None):
         '''
         Detector constructor
 
@@ -169,6 +189,14 @@ class SimDetector(BaseDetector):
         self.save_data = False
         self.save_path = save_path
         self.save_count = 0
+
+        #Path to the model for inference
+        self.model_path = model_path
+
+        #Instantiate a inference engine
+        # TODO Move thresh to parameter server
+        self.run_inference_engine = False
+        self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= 0.02)
 
         # Resolve the path
         if(self.save_path != None):
@@ -356,9 +384,6 @@ class SimDetector(BaseDetector):
         when an image comes in
         '''
 
-        # No need to do this if we're not saving any data
-        if(not self.save_data):
-            return
 
         # Grab the image - convert it to something we can use and save
         self.image = self.bridge.imgmsg_to_cv2(image, "bgr8")
@@ -370,6 +395,42 @@ class SimDetector(BaseDetector):
         # TODO: Determine if what we're looking at is the next up light
         #       and grab the state if it is. If we don't, we're going to
         #       get mostly pictures of hills...
+
+
+        if self.run_inference_engine:
+            #Grab the detector result image
+            # TODO: add in the marking of the image
+            # I plan on using the simulated version so the vehicle can run
+            detection_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)
+
+            #The model expects batches so ie 4 dimensional data so add in a single dimension to 
+            #get a bactch size of 1
+            detection_image_ex = np.expand_dims(detection_image, axis=0)
+
+            #Returns a dictionaru with bounding boxes and classes
+            output_dict =self.inference_engine.run_inference(detection_image_ex)
+
+
+
+
+            #Just some debug output of the live boxes
+            print('box coordinates: ', output_dict['detection_boxes'])
+
+
+
+            #draw the bounding boxes on the image 
+            detected_image = draw_bounding_boxes(detection_image, output_dict['detection_boxes'], output_dict['detection_classes'], self.inference_engine.color_list,thickness=4)
+
+
+            #Convert the detection image to an image message and store for the publish loop
+            self.detector_result_image_msg = self.bridge.cv2_to_imgmsg(detected_image, 'rgb8')#encoding="passthrough")
+        
+
+
+        # No need to do this if we're not saving any data
+        if(not self.save_data):
+            return
+
 
         # Finally, save the image
         file_name = self.save_path + "/" + "img_" + str(self.save_count) + "_s" + str(self.light_state) + ".jpg"
@@ -485,3 +546,5 @@ class Detector(BaseDetector):
         '''
         '''
         return self.light_ind, self.light_state
+
+
