@@ -24,6 +24,13 @@
 # | 3/15/2018          | Henry Savage  | Changed red light logic from       | #
 # |                    |               | '!= -1' to '> 0'                   | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/19/2018          | Henry Savage  | Removed extra next waypoint code.  | #
+# |                    |               | Updated stop line logic to use the | #
+# |                    |               | length of the vehicle in the stop  | #
+# |                    |               | velocity calculations and lowered  | #
+# |                    |               | the max decel value. The vehicle   | #
+# |                    |               | should now stop behind the line.   | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -66,7 +73,7 @@ class PathPlanner():
     '''
 
     def __init__(self, vehicle_pose=None, waypoints=None, speed_limit=None,
-                 max_decel=-3.0, max_accel=10.0):
+                 max_decel=-1.3, max_accel=10.0):
         '''
         Initializes the PathPlanner object with optional current vehicle
         position and list of waypoints
@@ -82,13 +89,17 @@ class PathPlanner():
         self.max_decel = max_decel if max_decel <= 0 else -1.0*max_decel
         self.max_accel = max_accel if max_accel >= 0 else -1.0*max_accel
 
+        # Vehicle dimensions info - honestly should be a topic that the
+        # runtime platform itself knows to put out so our code can not
+        # care.
+        self.vehicle_length = 4.47
+
         # The current up to date position (location + orientation) of the
         # vehicle
         self.vehicle_pose = vehicle_pose
 
         # Keep track of closest waypoints to our pose
-        self.closest_behind = -1
-        self.closest_in_front = -1
+        self.next_waypoint = -1
 
         # Keep track of a target stop point from the traffic light node or
         # obstacle node
@@ -105,7 +116,7 @@ class PathPlanner():
 
         # If we have waypoints, update where we are relative to them
         if(self.waypoints != None):
-            self.__set_closest_waypoints()
+            self.__set_closest_waypoint()
 
     def set_waypoints(self, waypoints):
         '''
@@ -119,7 +130,7 @@ class PathPlanner():
         # If we have a pose, update where we are relative to the new waypoints
         # and the pose
         if(self.vehicle_pose != None):
-            self.__set_closest_waypoints()
+            self.__set_closest_waypoint()
 
     def set_traffic_light_wp(self, wp_ind):
         '''
@@ -133,12 +144,14 @@ class PathPlanner():
         '''
         self.speed_limit = vel
 
-    def __set_closest_waypoints(self):
+    def __set_closest_waypoint(self):
         '''
-        Sets the closest waypoint values for both in front and behind.
+        Sets the closest waypoint value to the closests waypoint in front of the vehicle.
 
-        Sets the closest point, determines if its in front or behind, and
-        assigns the closest_behind and closest_in_front accordingly
+        Waypoint setting is done by finding the overall closest point to the vehicle
+        and determining if that point is in front of or behind the vehicle. If it
+        is behind, its assumed that the next waypoint would be in front of the
+        vehicle and that point is used.
 
         Complexity: O(n), n = number of waypoints
         '''
@@ -166,13 +179,11 @@ class PathPlanner():
 
         # Figure out if the closest waypoint is behind us so we can assign
         # in the points in the correct order
-        behind = self.__wp_is_behind(self.waypoints[i].pose.pose.position)
+        behind = self.__wp_is_behind(self.waypoints[closest].pose.pose.position)
         if(behind):
-            self.closest_behind = closest
-            self.closest_in_front = closest + 1 if closest + 1 < len(self.waypoints) else 0
-        else:
-            self.closest_behind = closest - 1 if closest - 1 >= 0 else len(self.waypoints) - 1
-            self.closest_in_front = closest
+            closest = closest + 1 if closest + 1 < len(self.waypoints) else len(self.waypoints)
+
+        self.next_waypoint = closest
 
     def __get_distance2d(self, p1, p2):
         '''
@@ -259,6 +270,7 @@ class PathPlanner():
         vi = 0.0
         d = 0.0
         a = self.max_decel
+        total_dist = 0;
 
         # Iterate on the list in reverse order
         for i in reversed(range(0, len(waypoints))):
@@ -275,17 +287,15 @@ class PathPlanner():
             else:
                 d = self.__get_distance2d(waypoints[i].pose.pose.position,
                                           waypoints[i + 1].pose.pose.position)
-                vi = sqrt((vf*vf) - (2.0 * a * d))
-                if(vi >= orig_speed):
-                    return waypoints
-                waypoints[i].twist.twist.linear.x = vi
-                vf = vi
-
-        # Debug output of waypoints
-        # d_s = "\n"
-        # for i, wp in enumerate(waypoints[0:25]):
-        #     d_s += "\tw_" + str(i) + ": (" + str(wp.pose.pose.position.x) + ", " + str(wp.pose.pose.position.y) + ") -- v_lin: " + str(wp.twist.twist.linear.x) + ", v_ang: " + str(wp.twist.twist.angular.z) + "\n"
-        # rospy.loginfo(d_s)
+                if(total_dist <= self.vehicle_length / 2.0):
+                    total_dist += d
+                    waypoints[i].twist.twist.linear.x = 0.0
+                else:
+                    vi = sqrt((vf*vf) - (2.0 * a * d))
+                    if(vi >= orig_speed):
+                        return waypoints
+                    waypoints[i].twist.twist.linear.x = vi
+                    vf = vi
 
         return waypoints
 
@@ -310,8 +320,8 @@ class PathPlanner():
 
         # Get the subset of way points to return
         tl_ind = self.traffic_light_ind
-        s = self.closest_in_front
-        e = min(self.closest_in_front + count, len(self.waypoints))
+        s = self.next_waypoint
+        e = min(self.next_waypoint + count, len(self.waypoints))
         waypoints = deepcopy(self.waypoints[s:e])
 
         #rospy.loginfo("s: " + str(s) + ", e: " + str(e) + ", count: " + str(count) + ", next_light (global): " + str(tl_ind))

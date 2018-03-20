@@ -59,6 +59,9 @@
 # |                    |               | enabled by adding the output attr  | #
 # |                    |               | to the launch file                 | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/19/2018          | Henry Savage  | Updated the debug interface to use | #
+# |                    |               | the new next_waypoint value        | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -350,7 +353,7 @@ class WaypointUpdater(object):
             cur_y = self.planner.vehicle_pose.position.y
             cur_z = self.planner.vehicle_pose.position.z
             _, _, s_angle = get_euler(self.planner.vehicle_pose.orientation)
-            cur_wp = self.planner.closest_in_front
+            cur_wp = self.planner.next_waypoint
             tl_wp = self.planner.traffic_light_ind
             frame = update_frame(s_limit, cur_x, cur_y, cur_z, s_angle, cur_wp, tl_wp, self.planner.waypoints)
             set_text_frame(frame)
