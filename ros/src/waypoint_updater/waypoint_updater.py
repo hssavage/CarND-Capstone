@@ -60,7 +60,9 @@
 # |                    |               | to the launch file                 | #
 # +--------------------+---------------+------------------------------------+ #
 # | 3/19/2018          | Henry Savage  | Updated the debug interface to use | #
-# |                    |               | the new next_waypoint value        | #
+# |                    |               | the new next_waypoint value. Also  | #
+# |                    |               | changed debug interface to output  | #
+# |                    |               | update timestamp and latencies     | #
 # +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
@@ -175,23 +177,66 @@ def term_map(cur_wp, tl_wp, tl_status, wps, x_size=100, y_size=60):
     frame_s = '\n'.join(["".join(s) if '.' in s else "" for s in frame]).strip("\n")
     return frame_s
 
-def update_frame(s_limit, cur_x, cur_y, cur_z, s_angle, cur_wp, tl_wp, wps):
+last_pos_ts = None
+last_tl_ts = None
+last_wp_ts = None
+
+def update_frame(planner, ts):
     '''
     Create a debug frame
     '''
+
+    global last_pos_ts
+    global last_tl_ts
+    global last_wp_ts
+
+    # Grab status all at once
+    s_limit = planner.speed_limit
+    cur_x = planner.vehicle_pose.position.x
+    cur_y = planner.vehicle_pose.position.y
+    cur_z = planner.vehicle_pose.position.z
+    _, _, s_angle = get_euler(planner.vehicle_pose.orientation)
+    cur_wp = planner.next_waypoint
+    tl_wp = planner.traffic_light_ind
+    wps = planner.waypoints
+    total_wps = len(wps) if wps != None else 0
+
+    # Times stamps
+    pos_ts = planner.vehicle_pose_ts if planner.vehicle_pose_ts != None else 0.0
+    tl_ts = planner.traffic_light_ind_ts if planner.traffic_light_ind_ts != None else 0.0
+    wp_ts = planner.next_waypoint_ts if planner.next_waypoint_ts != None else 0.0
+
+    # Edge case for last known times
+    if(last_pos_ts is None):
+        last_pos_ts = pos_ts
+    if(last_wp_ts is None):
+        last_wp_ts = wp_ts
+    if(last_tl_ts is None):
+        last_tl_ts = tl_ts
+
+    # Determine light color string
     tl_status = "red"
     if(tl_wp < 0):
         tl_status = "green"
         tl_wp *= -1
-    total_wps = len(wps) if wps != None else 0
+
+    # Build frame
     frame = ""
-    frame += "Speed Limit: " + str(s_limit) + "kph | " + str(MPS_TO_MPH * s_limit) + "\n"
+    frame += "Timestamp: " + str(ts) + "\n"
     frame += "Current Position: (" + str(cur_x) + ", " + str(cur_y) + ", " + str(cur_z) + ")\n"
-    frame += "Current Steering Angle: " + str(s_angle) + " degrees\n"
+    frame += "(Updated: " + str(pos_ts) + ", Delta: " + str(pos_ts - last_pos_ts) + ")\n"
     frame += "Current Waypoint: " + str(cur_wp) + "/" + str(total_wps) + "\n"
+    frame += "(Updated: " + str(wp_ts) + ", Delta: " + str(wp_ts - last_wp_ts) + ")\n"
     frame += "Next Traffic Light: " + str(tl_wp) + "\n"
     frame += "Next Traffic Status: " + str(tl_status) + "\n"
+    frame += "(Updated: " + str(tl_ts) + ", Delta: " + str(tl_ts - last_tl_ts) + ")\n"
     frame += term_map(cur_wp, tl_wp, tl_status, wps)
+
+    # Update timestamps
+    last_pos_ts = pos_ts
+    last_wp_ts = wp_ts
+    last_tl_ts = tl_ts
+
     return frame
 
 def set_text_frame(msg):
@@ -234,6 +279,9 @@ class WaypointUpdater(object):
         # Keep track of header meta data
         self.frame_id = None
         self.seq = 0
+
+        # Keep track of update timing
+        self.last_update_ts = None
 
         # Begin publishing
         self.run()
@@ -346,16 +394,10 @@ class WaypointUpdater(object):
 
             # Publish
             self.pub_waypoints(next_waypoints)
+            self.last_update_ts = rospy.get_time()
 
             # Debug output, gather status
-            s_limit = self.planner.speed_limit
-            cur_x = self.planner.vehicle_pose.position.x
-            cur_y = self.planner.vehicle_pose.position.y
-            cur_z = self.planner.vehicle_pose.position.z
-            _, _, s_angle = get_euler(self.planner.vehicle_pose.orientation)
-            cur_wp = self.planner.next_waypoint
-            tl_wp = self.planner.traffic_light_ind
-            frame = update_frame(s_limit, cur_x, cur_y, cur_z, s_angle, cur_wp, tl_wp, self.planner.waypoints)
+            frame = update_frame(self.planner, self.last_update_ts)
             set_text_frame(frame)
 
             # Sleep

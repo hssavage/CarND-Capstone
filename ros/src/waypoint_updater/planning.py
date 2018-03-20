@@ -31,6 +31,12 @@
 # |                    |               | the max decel value. The vehicle   | #
 # |                    |               | should now stop behind the line.   | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/19/2018 (2)      | Henry Savage  | Added updated timestamps so we can | #
+# |                    |               | begin tracking and monitoring any  | #
+# |                    |               | unacceptable or worrisome delays   | #
+# |                    |               | in data updates and handle stale   | #
+# |                    |               | values.                            | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -97,13 +103,16 @@ class PathPlanner():
         # The current up to date position (location + orientation) of the
         # vehicle
         self.vehicle_pose = vehicle_pose
+        self.vehicle_pose_ts = None
 
         # Keep track of closest waypoints to our pose
         self.next_waypoint = -1
+        self.next_waypoint_ts = None
 
         # Keep track of a target stop point from the traffic light node or
         # obstacle node
         self.traffic_light_ind = -1
+        self.traffic_light_ind_ts = None
 
     def set_vehicle_pose(self, pose):
         '''
@@ -113,6 +122,7 @@ class PathPlanner():
 
         # Update the pose
         self.vehicle_pose = pose
+        self.vehicle_pose_ts = rospy.get_time()
 
         # If we have waypoints, update where we are relative to them
         if(self.waypoints != None):
@@ -137,6 +147,7 @@ class PathPlanner():
         Handle a red traffic light waypoint
         '''
         self.traffic_light_ind = wp_ind
+        self.traffic_light_ind_ts = rospy.get_time()
 
     def set_speed_limit(self, vel):
         '''
@@ -184,6 +195,7 @@ class PathPlanner():
             closest = closest + 1 if closest + 1 < len(self.waypoints) else len(self.waypoints)
 
         self.next_waypoint = closest
+        self.next_waypoint_ts = rospy.get_time()
 
     def __get_distance2d(self, p1, p2):
         '''

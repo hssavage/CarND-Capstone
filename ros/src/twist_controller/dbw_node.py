@@ -56,6 +56,8 @@
 # |                    |               | and updated target velocity        | #
 # |                    |               | interface.                         | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/19/2018          | Henry Savage  | Added comments on presumed units   | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -99,9 +101,9 @@ class DBWNode(object):
         rospy.init_node('dbw_node')
 
         # Grab our constant parameters
-        vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35)
-        fuel_capacity = rospy.get_param('~fuel_capacity', 13.5)
-        brake_deadband = rospy.get_param('~brake_deadband', .1)
+        vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35) # Kg, probably
+        fuel_capacity = rospy.get_param('~fuel_capacity', 13.5) # Gallons? Litters?
+        brake_deadband = rospy.get_param('~brake_deadband', .1) # Torque value
         decel_input_limit = rospy.get_param('~decel_limit', -5) # Torque value
         accel_input_limit = rospy.get_param('~accel_limit', 1.) # Percent engaged value
         accel_limit = 10.0

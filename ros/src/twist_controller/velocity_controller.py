@@ -20,11 +20,14 @@
 # |                    |               | values -- fixed a bug where the    | #
 # |                    |               | vehicle wouldn't brake             | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/19/2018          | Henry Savage  | Removed duplicate multiplication   | #
+# |                    |               | of density when calculating mass   | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
 # Gas density constant to help with weight
-GAS_DENSITY = 2.858
+GAS_DENSITY = 2.858 # Almost definitely Kg/Gallon
 
 class VelocityController(object):
     def __init__(self, vehicle_mass=1e-6, max_accel=0.0, max_decel=0.0,
@@ -38,7 +41,7 @@ class VelocityController(object):
         self.vehicle_mass = vehicle_mass
         self.fuel_weight = fuel_capacity * GAS_DENSITY
         self.fuel_percentage = 1.0
-        self.total_vehicle_mass = self.vehicle_mass + (self.fuel_weight * GAS_DENSITY * self.fuel_percentage)
+        self.total_vehicle_mass = self.vehicle_mass + (self.fuel_weight * self.fuel_percentage)
 
         # Vehicle constants for Torque calculations
         self.wheel_radius = wheel_radius
