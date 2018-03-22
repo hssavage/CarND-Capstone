@@ -37,6 +37,13 @@
 # |                    |               | channel of the marked up image     | #
 # |                    |               | result                             | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/21/2018          | Henry Savage  | Updated precomputed set of next    | #
+# |                    |               | traffic light to assume there isnt | #
+# |                    |               | any wrapping around occuring. All  | #
+# |                    |               | "next lights" are set to waypoint  | #
+# |                    |               | '-1' for the end of the set where  | #
+# |                    |               | an index truly isn't known.        | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -108,15 +115,11 @@ class BaseDetector(object):
         #The path to the tf model to use
         self.model_path = model_path
 
-
-
         # The most up to date camera image
         self.image = None
 
-
         # The most up to date camera image
         self.detector_result_image_msg = None
-
 
         # To translate the image message to a cv2 image
         # TODO: Do we want this here, or do we want to assume we're being
@@ -124,10 +127,8 @@ class BaseDetector(object):
         self.bridge = CvBridge()
 
         # The most up to date traffic light state
-        self.light_id = -1
         self.light_ind = -1
         self.light_state = TrafficLight.UNKNOWN
-
 
     def set_vehicle_pose(self, pose):
         '''
@@ -289,9 +290,17 @@ class SimDetector(BaseDetector):
         if(self.closest_wp == -1):
             return
 
-        # Set final status
-        self.light_ind = self.next_light[self.closest_wp][2]
-        self.light_state = self.lights[self.next_light[self.closest_wp][0]].state
+        # Set final status:
+        #  - light_ind -> where to stop for next light
+        #  - light_state -> status of next light
+        # NOTE: if there's no know light, the "next light" waypoint is -1
+        # and we can set the status to unknown
+        if(self.next_light[self.closest_wp][1] != -1):
+            self.light_ind = self.next_light[self.closest_wp][2]
+            self.light_state = self.lights[self.next_light[self.closest_wp][0]].state
+        else:
+            self.light_ind = -1
+            self.light_state = TrafficLight.UNKNOWN
 
     def set_next_lights(self):
         '''
@@ -370,10 +379,10 @@ class SimDetector(BaseDetector):
                 self.next_light[i][2] = n_sl
 
         # Handle the loop back case (though this may not matter)
-        i = len(self.next_light) - 1
-        while(self.next_light[i][0] == -1):
-            self.next_light[i] = self.next_light[0]
-            i -= 1
+        # i = len(self.next_light) - 1
+        # while(self.next_light[i][0] == -1):
+        #     self.next_light[i] = self.next_light[0]
+        #     i -= 1
 
         # for i in range(0, len(self.next_light)):
         #     print(str(i) + ": " + str(self.next_light[i][0]) + ", " + str(self.next_light[i][1]) + ", " + str(self.next_light[i][2]))
@@ -383,7 +392,6 @@ class SimDetector(BaseDetector):
         Override the set_image() function so we can do data gather potentially
         when an image comes in
         '''
-
 
         # Grab the image - convert it to something we can use and save
         self.image = self.bridge.imgmsg_to_cv2(image, "bgr8")
@@ -398,39 +406,30 @@ class SimDetector(BaseDetector):
 
 
         if self.run_inference_engine:
-            #Grab the detector result image
+            # Grab the detector result image
             # TODO: add in the marking of the image
             # I plan on using the simulated version so the vehicle can run
             detection_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)
 
-            #The model expects batches so ie 4 dimensional data so add in a single dimension to 
-            #get a bactch size of 1
+            # The model expects batches so ie 4 dimensional data so add in a single dimension to
+            # get a bactch size of 1
             detection_image_ex = np.expand_dims(detection_image, axis=0)
 
-            #Returns a dictionaru with bounding boxes and classes
+            # Returns a dictionaru with bounding boxes and classes
             output_dict =self.inference_engine.run_inference(detection_image_ex)
 
-
-
-
-            #Just some debug output of the live boxes
+            # Just some debug output of the live boxes
             print('box coordinates: ', output_dict['detection_boxes'])
 
-
-
-            #draw the bounding boxes on the image 
+            # draw the bounding boxes on the image
             detected_image = draw_bounding_boxes(detection_image, output_dict['detection_boxes'], output_dict['detection_classes'], self.inference_engine.color_list,thickness=4)
 
-
-            #Convert the detection image to an image message and store for the publish loop
+            # Convert the detection image to an image message and store for the publish loop
             self.detector_result_image_msg = self.bridge.cv2_to_imgmsg(detected_image, 'rgb8')#encoding="passthrough")
-        
-
 
         # No need to do this if we're not saving any data
         if(not self.save_data):
             return
-
 
         # Finally, save the image
         file_name = self.save_path + "/" + "img_" + str(self.save_count) + "_s" + str(self.light_state) + ".jpg"

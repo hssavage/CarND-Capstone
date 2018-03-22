@@ -64,6 +64,16 @@
 # |                    |               | result so we can visualize as      | #
 # |                    |               | vehicle is traveling               | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/21/2018          | Henry Savage  | Updated traffic light state report | #
+# |                    |               | mechanism to just report -1 when a | #
+# |                    |               | light is green or yellow (previous | #
+# |                    |               | method was return -1*next_ind so   | #
+# |                    |               | we could print the future light    | #
+# |                    |               | status in the updater. This will   | #
+# |                    |               | likely be moved to a debug node    | #
+# |                    |               | this node can just send the status | #
+# |                    |               | directly instead)                  | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -142,7 +152,7 @@ class TLDetector(object):
 
             # If its not a red light, we dont have a stopping waypoint
             if(light_status != TrafficLight.RED):
-                light_ind *= -1
+                light_ind = -1
 
             # Publish the traffic light status
             # light_ind will be where we want to stop. If its a -1 then

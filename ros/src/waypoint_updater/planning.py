@@ -37,6 +37,12 @@
 # |                    |               | in data updates and handle stale   | #
 # |                    |               | values.                            | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/21/2018          | Henry Savage  | Changed logic that determined if   | #
+# |                    |               | the next red light is in our set   | #
+# |                    |               | of waypoints to use '< size' as    | #
+# |                    |               | opposed to '<= size'. This fixed   | #
+# |                    |               | an off by one error.               | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -275,7 +281,7 @@ class PathPlanner():
         if(waypoints is None):
             raise PathPlannerException("Given set of waypoints is None")
         if(stop_ind < 0 or stop_ind >= len(waypoints)):
-            raise PathPlannerException("Stop index is out of bounds given the set of waypoints")
+            raise PathPlannerException("Stop index (" + str(stop_ind) + ") is out of bounds given the set of waypoints (" + str(len(waypoints)) + ")")
 
         # Book keeping variables for managing state and working backwards
         vf = 0.0
@@ -328,7 +334,7 @@ class PathPlanner():
 
         # Check count requested
         if(count > len(self.waypoints)):
-            raise PathPlannerException("Count requested exceeds number of waypoints available")
+            raise PathPlannerException("Count (" + str(count) + ") requested exceeds number of waypoints available (" + str(len(self.waypoints)) + ")")
 
         # Get the subset of way points to return
         tl_ind = self.traffic_light_ind
@@ -336,29 +342,10 @@ class PathPlanner():
         e = min(self.next_waypoint + count, len(self.waypoints))
         waypoints = deepcopy(self.waypoints[s:e])
 
-        #rospy.loginfo("s: " + str(s) + ", e: " + str(e) + ", count: " + str(count) + ", next_light (global): " + str(tl_ind))
-
-        # Check wrap around and fix e to be relative in case we need it
-        # if(len(waypoints) < count and count <= len(self.waypoints)):
-        #     waypoints.extend(deepcopy(self.waypoints[0:(count - len(waypoints))]))
-        #     e = s + count
-        #
-        # Adjust traffic index for wrap around
-        # if(tl_ind != -1 and s > tl_ind):
-        #     tl_ind += len(self.waypoints)
-        #     rospy.loginfo("next_light (gloabl, adjusted for wrap): " + str(tl_ind))
-
         # Determine where in our set from [s:e] our wp is
-        #  and tl_ind >= s
         if(tl_ind > 0):
             tl_ind = tl_ind - s
-            #rospy.loginfo("next_light (local): " + str(tl_ind))
-
-            # Clamp stop index to 0 if it goes negative
-            # tl_ind = max(0, tl_ind)
-            # rospy.loginfo("next_light (local with safe stop buffer): " + str(tl_ind))
-
-            if(tl_ind <= len(waypoints)):
+            if(tl_ind < len(waypoints) and tl_ind >= 0):
                 waypoints = self.__stop_at_ind(tl_ind, waypoints)
 
         # return final adjusted waypoints

@@ -388,7 +388,7 @@ class WaypointUpdater(object):
             # Get the next waypoints if possible
             try:
                 next_waypoints = self.planner.get_next_waypoints(LOOKAHEAD_WPS)
-            except PathPlannerException:
+            except PathPlannerException as e:
                 rate.sleep()
                 continue;
 
@@ -397,8 +397,8 @@ class WaypointUpdater(object):
             self.last_update_ts = rospy.get_time()
 
             # Debug output, gather status
-            frame = update_frame(self.planner, self.last_update_ts)
-            set_text_frame(frame)
+            # frame = update_frame(self.planner, self.last_update_ts)
+            # set_text_frame(frame)
 
             # Sleep
             rate.sleep()
