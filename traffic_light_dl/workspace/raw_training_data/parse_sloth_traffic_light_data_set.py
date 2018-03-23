@@ -25,7 +25,7 @@ LABEL_DICT =  {
     "RedLeft" : 3,
     "RedRight" : 3,
     "Yellow" : 2,
-    "off" : 3,
+    "Off" : 4,
     "RedStraight" : 3,
     "GreenStraight" : 1,
     "GreenStraightLeft" : 1,
@@ -107,8 +107,8 @@ def get_tf_example(example_data, image_base_path, verbose =False):
     for annotation in example_data['annotations']:
         xmins.append(annotation['x']/width)        
         xmaxs.append((annotation['x']+annotation['width'])/width)        
-        xmins.append(annotation['y']/height)        
-        xmaxs.append((annotation['y']+annotation['height'])/height)        
+        ymins.append(annotation['y']/height)        
+        ymaxs.append((annotation['y']+annotation['height'])/height)        
         classes_text.append(annotation['id'].encode())
         classes.append(int(LABEL_DICT[annotation['id']]))
 
@@ -145,7 +145,8 @@ def main(_):
     loop_count = 0
 
     for example in sloth_dict:
-        tf_example = get_tf_example(example,FLAGS.image_base_path)
+        #print("Example: ", example)
+        tf_example = get_tf_example(example,FLAGS.image_base_path, verbose=True)
 #        print(tf_example)
         writer.write(tf_example.SerializeToString())
         loop_count = loop_count +1

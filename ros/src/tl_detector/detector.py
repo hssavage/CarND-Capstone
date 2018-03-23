@@ -44,6 +44,10 @@
 # |                    |               | '-1' for the end of the set where  | #
 # |                    |               | an index truly isn't known.        | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/21/2018          | Jason  Clemons| Added param for model path         | #
+# |                    |               | and also changed image types to    | #
+# |                    |               | png                                | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -432,7 +436,7 @@ class SimDetector(BaseDetector):
             return
 
         # Finally, save the image
-        file_name = self.save_path + "/" + "img_" + str(self.save_count) + "_s" + str(self.light_state) + ".jpg"
+        file_name = self.save_path + "/"+"img_" + str(self.save_count) + "_s" + str(self.light_state) + ".png"
         cv2.imwrite(file_name, self.image)
         self.save_count += 1
 

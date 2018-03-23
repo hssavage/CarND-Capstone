@@ -1,0 +1,101 @@
+[
+    {
+        "annotations": [
+            {
+                "class": "traffic_light",
+                "height": 121.0,
+                "id": "Red",
+                "type": "rect",
+                "width": 54.0,
+                "x": 128.0,
+                "y": 290.0
+            },
+            {
+                "class": "traffic_light",
+                "height": 125.0,
+                "id": "Red",
+                "type": "rect",
+                "width": 51.0,
+                "x": 376.0,
+                "y": 293.0
+            },
+            {
+                "class": "traffic_light",
+                "height": 122.0,
+                "id": "Red",
+                "type": "rect",
+                "width": 57.0,
+                "x": 624.0,
+                "y": 298.0
+            }
+        ],
+        "class": "image",
+        "filename": "rgb/sloth_train/out00110.png"
+    },
+    {
+        "annotations": [
+            {
+                "class": "traffic_light",
+                "height": 124.0,
+                "id": "Yellow",
+                "type": "rect",
+                "width": 48.0,
+                "x": 130.0,
+                "y": 290.0
+            },
+            {
+                "class": "traffic_light",
+                "height": 120.0,
+                "id": "Yellow",
+                "type": "rect",
+                "width": 51.0,
+                "x": 377.0,
+                "y": 292.0
+            },
+            {
+                "class": "traffic_light",
+                "height": 123.0,
+                "id": "Yellow",
+                "type": "rect",
+                "width": 54.0,
+                "x": 623.0,
+                "y": 298.0
+            }
+        ],
+        "class": "image",
+        "filename": "rgb/sloth_train/out00156.png"
+    },
+    {
+        "annotations": [
+            {
+                "class": "traffic_light",
+                "height": 136.0,
+                "id": "Green",
+                "type": "rect",
+                "width": 59.0,
+                "x": 101.0,
+                "y": 248.0
+            },
+            {
+                "class": "traffic_light",
+                "height": 143.0,
+                "id": "Green",
+                "type": "rect",
+                "width": 59.0,
+                "x": 377.0,
+                "y": 249.0
+            },
+            {
+                "class": "traffic_light",
+                "height": 141.0,
+                "id": "Green",
+                "type": "rect",
+                "width": 60.0,
+                "x": 653.0,
+                "y": 255.0
+            }
+        ],
+        "class": "image",
+        "filename": "rgb/sloth_train/out00396.png"
+    }
+]

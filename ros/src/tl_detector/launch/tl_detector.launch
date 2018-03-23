@@ -1,4 +1,10 @@
 <?xml version="1.0"?>
 <launch>
-    <node pkg="tl_detector" type="tl_detector.py" name="tl_detector" output="screen" cwd="node"/>
+    <node pkg="tl_detector" type="tl_detector.py" name="tl_detector" output="screen" cwd="node">
+
+    <!--Traffic Light Training Data Path -->
+    <param name="traffic_light_training_data_directory" value="$(find tl_detector)/training_data" />
+
+    </node>
+
 </launch>

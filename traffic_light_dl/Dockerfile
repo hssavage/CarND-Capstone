@@ -1,11 +1,11 @@
 FROM gcr.io/tensorflow/tensorflow:latest-gpu-py3
 RUN apt-get update
-RUN apt-get install -y protobuf-compiler python3-pil python3-lxml python3-tk git nano
+RUN apt-get install -y protobuf-compiler python3-pil python3-lxml python3-tk git nano libsm6 libxext6 libxrender-dev
 RUN pip3 --no-cache-dir install jupyter
 RUN pip3  --no-cache-dir install matplotlib
 RUN pip3  --no-cache-dir install Cython
 RUN pip3 --no-cache-dir install ruamel-yaml
-
+RUN pip3 --no-cache-dir install opencv-python
 
 RUN mkdir /tensorflow
 WORKDIR /tensorflow

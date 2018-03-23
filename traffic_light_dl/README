@@ -33,3 +33,9 @@ nano -c /tensorflow/models/research/object_detection/data_decoders/tf_example_de
 python object_detection/train.py --logtostderr --pipeline_config_path=/workspace/models/mobilenet_ssd/bosch_traffic_dataset.config --train_dir=/workspace/models/mobilenet_ssd/train/
 
 
+Sloth:
+virtualenv --system-site-packages -p python3 ./sloth
+pip3 install matplotlib
+pip3 install numpy
+sudo apt-get install python3-pyqt4
+pip install git+git://github.com/cvhciKIT/sloth

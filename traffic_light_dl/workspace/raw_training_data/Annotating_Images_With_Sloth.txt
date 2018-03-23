@@ -1,0 +1,116 @@
+Step 1: Installing sloth (Linux)
+	A. Create a virutal environment for pyhton
+		> virtualenv --system-site-packages -p python3 ./sloth
+	
+	B. Activate the virutal env 
+		> source sloth/bin/activate
+	C.  Use pip and git to install sloth
+		> pip install git+git://github.com/cvhciKIT/sloth
+	D.  Install pyqt4
+		> sudo apt-get install python3-pyqt4
+	E. Install the last required packages using pip
+		> pip3 install numpy
+		> pip3 install matplotlib
+		> pip3 install pillow
+
+Getting pyqt4 on windows:
+
+Step 1: Install sloth (Windows/Miniconda)  All done at anaconda prompt
+	A. Create a virutal environment for pyhton
+		> conda create -n sloth python=3.5
+	
+	B. Activate the env 
+		> activate sloth
+	C. Get py qt4
+		From https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyqt4 download PyQt4-4.11.4-cp35-none-win_amd64.whl
+		> cd <download directory>
+		> pip install PyQt4-4.11.4-cp35-none-win_amd64.whl
+
+	D.  Use pip and git to install sloth
+		> pip install git+git://github.com/cvhciKIT/sloth
+	E. Install the last required packages using pip
+		> pip install numpy matplotlib pillow
+	
+
+Step 2: Getting images From the Simulator
+	A.  (optional) Setup the path for the images in the config file
+		In tl_detector.launch there is a parameter:
+		<!--Traffic Light Training Data Path -->
+    	<param name="traffic_light_training_data_directory" value="$(find tl_detector)/training_data" />
+		The images will be stored in a directory off the  directory
+		ros/src/tl_detector/training_data/<image_dir>
+
+	B.  Run the ROS project
+
+
+	C.  Run the project in simulation
+		The images will be captured when the camera is checked in the simulation.  In order
+		to get clean images the latest code stores them as png files
+		Drive the car however you want.  I recommend only turning the camera on
+		when the traffic lights are in view.  Try to get a good mix red, yellow and green lights 
+	
+Step 3: Setting up the directory structrue for labeling
+
+
+
+
+	A. Copy the directory with your images: 
+		From:
+			CarND-Capstone-master
+				ros
+					+src
+						+tl_detector
+							+training_data
+								+<image_dir>
+									-images
+
+		To:
+			CarND-Capstone-master
+				+traffic_light_dl
+					+workspace
+						+raw_training_data
+							-sloth_labels_config.py
+							-base_sloth_train.json
+							-jason_sloth_train.json
+							+rgb
+								+sloth_train
+									+<image_dir>
+										-images
+
+	Copy base_sloth_train.json to <name>_sloth_train.json
+
+
+Running sloth:
+
+Step 4: Run sloth from the raw_training_data directory
+	Website for using sloth: http://sloth.readthedocs.io/en/latest/
+
+	> sloth --config sloth_labels_config.py <name>_sloth_train.json
+	
+	This opens sloth and then allows you to mark bounding boxes.  It starts with three example images in the list.
+	
+	To add an image click the add image icon on the menu bar (5th from the right)
+		Select the images you want to add and click open
+	
+	The image will be added to the list in the lower right side of the windows
+		Select the first new image in the list
+	
+	The top right of window (below the menu bar) is a list of sloth_labels_config
+		click the traffic_light labeling
+		Select the state of the lights
+			Red-> Red
+			Green-> Green
+			Yellow-> Yellow
+			Off, unknwown or see the back of it -> Off
+		If you see the light from the side (as in it for traffic perpindicular to us) then do not label it.
+	
+	To add the bounding box after the label is selected
+		Hold the left mouse button and drag to create the bounding box
+	Create bounding box around all lights in the image. 
+	Click the right arrow above the image to move to the next image
+	
+	Make sure to click save to save the annotations to the json file
+	When done check in your json to the repo and copy your image directory to:	
+	 https://drive.google.com/open?id=19LQqUJYdeAZuwV0C-ybrZSjNqw-e445d
+
+

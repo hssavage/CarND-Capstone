@@ -41,7 +41,15 @@
 # | /traffic_waypoint  | 5 Hz / 1      | Index of waypoint of a known red   | #
 # |                    |               | traffic light, -1 otherwise        | #
 # +--------------------+---------------+------------------------------------+ #
-#                                                                             #
+# | /traffic_light_  \ | ? Hz / 1      | Result of light detection          | #
+# |detection_result_ \ |               |                                    | #
+# |color               |               |                                    | #
+# +--------------------+---------------+------------------------------------+ #
+
+#
+# 
+# 
+# /traffic_light_detection_result_color                                                                             #
 # Change Log:                                                                 #
 # -----------                                                                 #
 # +--------------------+---------------+------------------------------------+ #
@@ -73,6 +81,10 @@
 # |                    |               | likely be moved to a debug node    | #
 # |                    |               | this node can just send the status | #
 # |                    |               | directly instead)                  | #
+# +--------------------+---------------+------------------------------------+ #
+# | 3/21/2018          | Jason  Clemons| Added param for model path         | #
+# |                    |               | and also changed image types to    | #
+# |                    |               | png                                | #
 # +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
@@ -110,11 +122,15 @@ class TLDetector(object):
         lights_config = yaml.load(config_string)
 
         model_file_path = rospy.get_param("/traffic_light_detector_model") + '/frozen_inference_graph.pb'
+        training_data_path = rospy.get_param("~traffic_light_training_data_directory")
+
 
         print("Model File Path:", model_file_path)
 
+        print("Training Data Path:", training_data_path)
+
         # Main detector object
-        self.detector = SimDetector(lights_config=lights_config, model_path=model_file_path) #, save_path="training_data")
+        self.detector = SimDetector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
 
         # Data we're subscribing to
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
