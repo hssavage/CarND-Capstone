@@ -15,7 +15,7 @@
 # |                    |               | Needs a lot of clean up but a      | #
 # |                    |               | good starting poc and example      | #
 # +--------------------+---------------+------------------------------------+ #
-# | 3/18/2018          | Jason Clemons | Added filter based on area and     | #
+# | 3/24/2018          | Jason Clemons | Added filter based on area and     | #
 # |                    |               | Added filter based on histogram    | #
 # |                    |               | Also translating to ros class ids  | #
 # +--------------------+---------------+------------------------------------+ #
