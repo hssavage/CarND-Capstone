@@ -39,9 +39,9 @@ from styx_msgs.msg import TrafficLightArray, TrafficLight
 
 
 def draw_bounding_boxes(image, boxes, classes,color_list ,thickness=4):
-'''
-Draw bounding boxes with the passed in the color list based on the classes
-'''
+    '''
+    Draw bounding boxes with the passed in the color list based on the classes
+    '''
 
 
     #THis function was written assuming PIL but we are uisng opencv so
@@ -71,9 +71,9 @@ Draw bounding boxes with the passed in the color list based on the classes
 
 #This class holds the tf session and graph to do inference as needed
 class DetectionInferenceEngine(object):
-'''
-This class holds an inference engine that holds the tensorflow objects for doing inference
-'''
+    '''
+    This class holds an inference engine that holds the tensorflow objects for doing inference
+    '''
 
 
     def __init__(self,model_path='models/mobilenet_ssd/frozen_inference_graph.pb', confidence_thr= 0.02, min_area = 1000, max_area = 25200,class_dict= None, color_list=None):
@@ -168,9 +168,6 @@ This class holds an inference engine that holds the tensorflow objects for doing
 
     #Translating 
     def translate_classes(self, classes):
-    '''
-    Translate the ids.  For training do not use a 0 index so we have to translate for talking to ros
-    '''
 
         new_classes = []
 
@@ -187,9 +184,6 @@ This class holds an inference engine that holds the tensorflow objects for doing
         return new_classes
 
     def predict_current_light_state(self, classes):
-    '''
-    Use a histogram to predict the light state based number of each class in the image
-    '''
 
         predicted_state = TrafficLight.UNKNOWN
         if len(classes) > 0:
