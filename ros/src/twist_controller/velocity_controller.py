@@ -23,6 +23,8 @@
 # | 3/19/2018          | Henry Savage  | Removed duplicate multiplication   | #
 # |                    |               | of density when calculating mass   | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/24/2018          | Xiao He       | Edited the throttle input to reach | #
+# |                    |               | the speed limit                    | #
 ###############################################################################
 '''
 
@@ -138,7 +140,7 @@ class VelocityController(object):
         if(torque >= 0):
             # Gates the throttle to the input limit given which is a ration
             # based on the torque outputted
-            throttle = (torque / self.max_accel_torque) * self.max_accel_input
+            throttle = (torque / self.max_accel_torque) * self.max_accel_input * 80
             throttle, brake = min(self.max_accel_input, throttle), 0.0
         else:
             # Gates the braking input value which is just a torque value
