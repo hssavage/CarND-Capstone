@@ -420,11 +420,14 @@ class SimDetector(BaseDetector):
             detection_image_ex = np.expand_dims(detection_image, axis=0)
 
             # Returns a dictionaru with bounding boxes and classes
-            output_dict =self.inference_engine.run_inference(detection_image_ex)
+            output_dict,predicted_light_state =self.inference_engine.run_inference(detection_image_ex)
+
+
 
             # Just some debug output of the live boxes
+            print('predicted_light_state: ', predicted_light_state)
             print('box coordinates: ', output_dict['detection_boxes'])
-
+            print('Detection Scores: ',output_dict['detection_scores'])
             # draw the bounding boxes on the image
             detected_image = draw_bounding_boxes(detection_image, output_dict['detection_boxes'], output_dict['detection_classes'], self.inference_engine.color_list,thickness=4)
 

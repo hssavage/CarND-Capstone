@@ -15,6 +15,10 @@
 # |                    |               | Needs a lot of clean up but a      | #
 # |                    |               | good starting poc and example      | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/18/2018          | Jason Clemons | Added filter based on area and     | #
+# |                    |               | Added filter based on histogram    | #
+# |                    |               | Also translating to ros class ids  | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -30,10 +34,14 @@ from io import StringIO
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageColor
+from styx_msgs.msg import TrafficLightArray, TrafficLight
 
 
 
 def draw_bounding_boxes(image, boxes, classes,color_list ,thickness=4):
+'''
+Draw bounding boxes with the passed in the color list based on the classes
+'''
 
 
     #THis function was written assuming PIL but we are uisng opencv so
@@ -46,13 +54,13 @@ def draw_bounding_boxes(image, boxes, classes,color_list ,thickness=4):
     draw = ImageDraw.Draw(im_pil)
 
     for i in range(len(boxes)):
-        print('Drawing ', boxes [i,...])
+#        print('Drawing ', boxes [i,...])
         bot, left, top, right = boxes[i, ...]
         class_id = int(classes[i])
-        print("Classes: ", class_id)
+ #       print("Classes: ", class_id)
         color = color_list[class_id]
         #COLOR_LIST[class_id-i]
-        print('color: ', type(color))
+#        print('color: ', type(color))
         draw.line([(left, top), (left, bot), (right, bot), (right, top), (left, top)], width=thickness, fill=color)
 
     #COnvert back to numpy array/cv format  
@@ -63,7 +71,12 @@ def draw_bounding_boxes(image, boxes, classes,color_list ,thickness=4):
 
 #This class holds the tf session and graph to do inference as needed
 class DetectionInferenceEngine(object):
-    def __init__(self,model_path='models/mobilenet_ssd/frozen_inference_graph.pb', confidence_thr= 0.02, class_dict= None, color_list=None):
+'''
+This class holds an inference engine that holds the tensorflow objects for doing inference
+'''
+
+
+    def __init__(self,model_path='models/mobilenet_ssd/frozen_inference_graph.pb', confidence_thr= 0.02, min_area = 1000, max_area = 25200,class_dict= None, color_list=None):
 
 
         #Store the graph object we will load the model into
@@ -75,9 +88,12 @@ class DetectionInferenceEngine(object):
         #Setup a threshold for accepting bounding box
         self.confidence_thr = confidence_thr
 
+        self.min_area = min_area
+        self.max_area = max_area
+
         #A list of colors to draw with based on classification
         if(color_list == None):
-            self.color_list = ['white','green', 'yellow', 'red','gray']
+            self.color_list = ['red','yellow','green','gray','white']#['white','green', 'yellow', 'red','gray']
         else:
             self.color_list = color_list
 
@@ -135,16 +151,58 @@ class DetectionInferenceEngine(object):
 
             #We need to filter these results based on confidence
             output_dict['detection_boxes'], output_dict['detection_scores'], output_dict['detection_classes'] = self.filter_boxes(self.confidence_thr, output_dict['detection_boxes'], output_dict['detection_scores'], output_dict['detection_classes'])
-
  
-            print('shape: ',image.shape)
+#            print('shape: ',image.shape)
 
             #Convert the bounding box results which are normalized coordinates [0 to 1) to actual image coordinates 
             height, width = image.shape[1:3]
             output_dict['detection_boxes'] = self.to_image_coords(output_dict['detection_boxes'], height, width)
+            output_dict['detection_boxes'], output_dict['detection_scores'], output_dict['detection_classes'] = self.filter_boxes_by_area(self.min_area,  self.max_area, output_dict['detection_boxes'], output_dict['detection_scores'], output_dict['detection_classes'])
+
+            output_dict['detection_classes'] = self.translate_classes(output_dict['detection_classes'])
+
+            predicted_light_state = self.predict_current_light_state(output_dict['detection_classes'])
 
         #Return the dictionary      
-        return output_dict
+        return output_dict, predicted_light_state
+
+    #Translating 
+    def translate_classes(self, classes):
+    '''
+    Translate the ids.  For training do not use a 0 index so we have to translate for talking to ros
+    '''
+
+        new_classes = []
+
+        for current_class in classes:
+            if current_class == 1:
+                new_classes.append(TrafficLight.GREEN)
+            if current_class == 2:
+                new_classes.append(TrafficLight.YELLOW)
+            if current_class == 3:
+                new_classes.append(TrafficLight.RED)
+            if current_class == 4:
+                new_classes.append(TrafficLight.UNKNOWN)
+
+        return new_classes
+
+    def predict_current_light_state(self, classes):
+    '''
+    Use a histogram to predict the light state based number of each class in the image
+    '''
+
+        predicted_state = TrafficLight.UNKNOWN
+        if len(classes) > 0:
+            histogram = [0,0,0,0,0]
+            for light in classes:
+                histogram[light] +=1
+            max_value = max(histogram)
+            max_index = histogram.index(max_value)
+            predicted_state = max_index
+
+
+        return predicted_state
+
 
     def filter_boxes(self,min_score, boxes, scores, classes):
         """Return boxes with a confidence >= `min_score`"""
@@ -157,7 +215,28 @@ class DetectionInferenceEngine(object):
         filtered_boxes = boxes[idxs, ...]
         filtered_scores = scores[idxs, ...]
         filtered_classes = classes[idxs, ...]
+
         return filtered_boxes, filtered_scores, filtered_classes
+
+
+    def filter_boxes_by_area(self,min_area,max_area, boxes, scores, classes):
+        """Return boxes within area limits`"""
+        n = len(classes)
+        idxs = []
+        for i in range(n):
+            bot, left, top, right = boxes[i, ...]
+            area = abs((bot-top) * (right - left))
+            print('Area: ', area)
+            if area >= min_area and area <= max_area:
+                idxs.append(i)
+        
+        filtered_boxes = boxes[idxs, ...]
+        filtered_scores = scores[idxs, ...]
+        filtered_classes = classes[idxs, ...]
+
+        return filtered_boxes, filtered_scores, filtered_classes
+
+
 
     def to_image_coords(self,boxes, height, width):
         """
