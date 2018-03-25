@@ -231,7 +231,7 @@ class SimDetector(BaseDetector):
 
         #Instantiate a inference engine
         # TODO Move thresh to parameter server
-        self.run_inference_engine = True
+        self.run_inference_engine = False
         self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= 0.02)
 
         # Resolve the path
@@ -568,7 +568,8 @@ class Detector(BaseDetector):
         self.state_count_threshold = 4
         self.state_count = 0
 
-
+        self.predicted_light_ind  =-1
+        self.predicted_state = 0
 
         # Do we want to gather training data?
         self.save_data = False
@@ -804,31 +805,31 @@ class Detector(BaseDetector):
         if(self.closest_wp == -1):
             return
 
-        rospy.loginfo('Predicted Light State - %s for light at ', 
-            predicted_light_state,self.closest_wp)
+        rospy.loginfo('Predicted Light State - %s for light at %s', 
+            predicted_light_state,self.next_light[self.closest_wp][0])
 
 
+        if(self.last_closest_light_wp == self.next_light[self.closest_wp][2]):
+            if(self.last_closest_light_state == predicted_light_state):
 
-        #if closest way point is same then use count
-        if (self.closest_wp == self.last_closest_light_wp):
-            if (self.last_closest_light_state == predicted_light_state):
-                if (self.state_count >= self.state_count_threshold):
-                    if(self.next_light[self.closest_wp][1] != -1):
-                        self.light_ind = self.next_light[self.closest_wp][2]
-                        self.light_state = self.lights[self.next_light[self.closest_wp][0]].state
-                    else:
-                        self.light_ind = -1
-                        self.light_state = TrafficLight.UNKNOWN
+                if(self.state_count >= self.state_count_threshold):
+                    self.predicted_state = predicted_light_state
+                    self.predicted_light_ind = self.next_light[self.closest_wp][2]
+
             else:
                 self.last_closest_light_state = predicted_light_state
-                self.last_closest_light_wp = self.closest_wp 
-                
-        else:
-            self.last_closest_light_state = predicted_light_state
-            self.last_closest_light_wp = self.closest_wp 
-            self.state_count = 0
+                self.state_count = 0
 
-        self.state_count += 1
+        else:
+            self.last_closest_light_wp = self.next_light[self.closest_wp][2]    
+            self.last_closest_light_state = predicted_light_state
+            self.state_count = 0
+        self.state_count +=1
+
+
+        self.light_state = self.predicted_state
+        self.light_ind = self.predicted_light_ind
+
 
         # Finally, save the image
         file_name = self.save_path + "/"+"img_" + str(self.save_count) + "_s" + str(self.light_state) + ".png"
