@@ -45,11 +45,9 @@
 # |detection_result_ \ |               |                                    | #
 # |color               |               |                                    | #
 # +--------------------+---------------+------------------------------------+ #
-
-#
-# 
-# 
-# /traffic_light_detection_result_color                                                                             #
+#                                                                             # 
+#                                                                             #
+#                                                                             #
 # Change Log:                                                                 #
 # -----------                                                                 #
 # +--------------------+---------------+------------------------------------+ #
@@ -86,6 +84,10 @@
 # |                    |               | and also changed image types to    | #
 # |                    |               | png                                | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/25/2018          | Jason  Clemons| Added debug log level              | #
+# |                    |               |                                    | #
+# |                    |               |                                    | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -111,7 +113,7 @@ class TLDetector(object):
         '''
 
         # Init this as a ROS node
-        rospy.init_node('tl_detector')
+        rospy.init_node('tl_detector',log_level=rospy.DEBUG)
 
         # Load traffic light config data -- YAML file with:
         # camera_info - Might be the header of the YAML file?

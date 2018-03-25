@@ -1,0 +1,4 @@
+duration total_duration
+duration inference_duration
+duration debug_duration
+duration save_duration
