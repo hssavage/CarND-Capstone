@@ -28,6 +28,9 @@
 # | /image_color       | Simulator          | Color images from the         | #
 # |                    |                    | vehicles traffic light camera | #
 # +--------------------+--------------------+-------------------------------+ #
+# | /image_raw         | Replay bag         | Color images from the         | #
+# |                    |                    | vehicles traffic light camera | #
+# +--------------------+--------------------+-------------------------------+ #
 # | /vehicle/          | Simulator          | Debug and test set gathering  | #
 # |     traffic_lights |                    | ground truth values           | #
 # +--------------------+--------------------+-------------------------------+ #
@@ -88,6 +91,10 @@
 # |                    |               |                                    | #
 # |                    |               |                                    | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/25/2018          | Jason  Clemons| Subscribe to /image_raw to get     | #
+# |                    |               |  training data from example bags   | #
+# |                    |               |                                    | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -138,6 +145,9 @@ class TLDetector(object):
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
         sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
+        sub7 = rospy.Subscriber('/image_raw', Image, self.image_cb)
+
+
 
         # Data we're publishing
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
