@@ -1,6 +1,6 @@
 # ROS things we don't need
-ros/src/devel/**
-ros/src/build/**
+ros/devel/**
+ros/build/**
 ros/src/styx/profile.tmp
 
 # Byte-compiled / optimized / DLL files
