@@ -138,7 +138,7 @@ class TLDetector(object):
         model_file_path = rospy.get_param("/traffic_light_detector_model") + '/frozen_inference_graph.pb'
         training_data_path = rospy.get_param("~traffic_light_training_data_directory")
 
-        self.use_sim_detector = False
+        self.use_sim_detector = True
         print("Model File Path:", model_file_path)
 
         print("Training Data Path:", training_data_path)
