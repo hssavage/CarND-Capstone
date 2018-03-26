@@ -95,6 +95,11 @@
 # |                    |               |  training data from example bags   | #
 # |                    |               |                                    | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/26/2018          | Jason  Clemons| Added real detector instance       | #
+# |                    |               |  and a flag to activate it         | #
+# |                    |               |  Also added commented out shadow   | #
+# |                    |               |  detectors for testing             | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -112,7 +117,7 @@ from sensor_msgs.msg import Image
 import yaml
 
 # Our Detector objects
-from detector import SimDetector
+from detector import SimDetector, Detector
 
 class TLDetector(object):
     def __init__(self):
@@ -133,13 +138,20 @@ class TLDetector(object):
         model_file_path = rospy.get_param("/traffic_light_detector_model") + '/frozen_inference_graph.pb'
         training_data_path = rospy.get_param("~traffic_light_training_data_directory")
 
-
+        self.use_sim_detector = False
         print("Model File Path:", model_file_path)
 
         print("Training Data Path:", training_data_path)
 
         # Main detector object
-        self.detector = SimDetector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
+        if(self.use_sim_detector):
+            self.detector = SimDetector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
+            #self.shadow_detector = Detector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
+
+        else:
+            self.detector = Detector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
+            #self.shadow_detector = SimDetector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
+
 
         # Data we're subscribing to
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
@@ -177,6 +189,9 @@ class TLDetector(object):
 
             # Get current detector info
             light_ind, light_status = self.detector.traffic_light_status()
+            #shadow_light_ind, shadow_light_status = self.shadow_detector.traffic_light_status()
+
+
 
             # If its not a red light, we dont have a stopping waypoint
             if(light_status != TrafficLight.RED):
@@ -199,18 +214,23 @@ class TLDetector(object):
         Callback for current_pose data
         '''
         self.detector.set_vehicle_pose(msg.pose)
+        #self.shadow_detector.set_vehicle_pose(msg.pose)
+
 
     def waypoints_cb(self, waypoints):
         '''
         Callback for the base_waypoints list data
         '''
         self.detector.set_waypoints(waypoints.waypoints)
+        #self.shadow_detector.set_waypoints(waypoints.waypoints)
 
     def image_cb(self, image):
         '''
         Callback for handling image data
         '''
         self.detector.set_image(image)
+        #self.shadow_detector.set_image(image)
+
 
 if __name__ == '__main__':
     try:
