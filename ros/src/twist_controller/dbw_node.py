@@ -33,14 +33,14 @@
 # | Topic Path            | Update Rate + | Description                     | #
 # |                       | Queue Size    |                                 | #
 # +-----------------------+---------------+---------------------------------+ #
-# | /vehicle/brake_cmd    | 50hz / ? item | The command to the vehicles     | #
+# | /vehicle/brake_cmd    | 50hz / 1 item | The command to the vehicles     | #
 # |                       |               | brake controller to carry out   | #
 # +-----------------------+---------------+---------------------------------+ #
-# | /vehicle/throttle_cmd | 50hz / ? item | The command to the vehicles     | #
+# | /vehicle/throttle_cmd | 50hz / 1 item | The command to the vehicles     | #
 # |                       |               | throttle controller to carry    | #
 # |                       |               | out                             | #
 # +-----------------------+---------------+---------------------------------+ #
-# | /vehicle/steering_cmd | 50hz / ? item | The command to the vehicles     | #
+# | /vehicle/steering_cmd | 50hz / 1 item | The command to the vehicles     | #
 # |                       |               | steering controller to carry    | #
 # |                       |               | out                             | #
 # +-----------------------+---------------+---------------------------------+ #
@@ -58,39 +58,22 @@
 # +--------------------+---------------+------------------------------------+ #
 # | 3/19/2018          | Henry Savage  | Added comments on presumed units   | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/25/2018          | Henry Savage  | Updated the debug interface to use | #
+# |                    |               | the new /debug topic, which is a   | #
+# |                    |               | system wide debug interface        | #
+# |                    |               | defined by the debug_output node   | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
+import math
 import rospy
 from std_msgs.msg import Bool
 from dbw_mkz_msgs.msg import ThrottleCmd, SteeringCmd, BrakeCmd, SteeringReport
 from geometry_msgs.msg import TwistStamped
-import math
+from debug_msgs.msg import Debug
 
 from twist_controller import Controller
-
-'''
-You can build this node only after you have built (or partially built) the `waypoint_updater` node.
-
-You will subscribe to `/twist_cmd` message which provides the proposed linear and angular velocities.
-You can subscribe to any other message that you find important or refer to the document for list
-of messages subscribed to by the reference implementation of this node.
-
-One thing to keep in mind while building this node and the `twist_controller` class is the status
-of `dbw_enabled`. While in the simulator, its enabled all the time, in the real car, that will
-not be the case. This may cause your PID controller to accumulate error because the car could
-temporarily be driven by a human instead of your controller.
-
-We have provided two launch files with this node. Vehicle specific values (like vehicle_mass,
-wheel_base) etc should not be altered in these files.
-
-We have also provided some reference implementations for PID controller and other utility classes.
-You are free to use them or build your own.
-
-Once you have the proposed throttle, brake, and steer values, publish it on the various publishers
-that we have created in the `__init__` function.
-
-'''
 
 class DBWNode(object):
     def __init__(self):
@@ -127,6 +110,9 @@ class DBWNode(object):
                                             ThrottleCmd, queue_size=1)
         self.brake_pub = rospy.Publisher('/vehicle/brake_cmd',
                                          BrakeCmd, queue_size=1)
+
+        # Debug message publisher
+        self.debug_output = rospy.Publisher('/debug', Debug, queue_size=2)
 
         # Is this node enabled?
         self.enabled = False
@@ -222,6 +208,17 @@ class DBWNode(object):
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
 
+    def pub_debug(self, line, s):
+        '''
+        '''
+        try:
+            d = Debug()
+            d.line_start = line
+            d.text = str(s)
+            self.debug_output.publish(d)
+        except Exception as e:
+            return
+
     def run(self):
         '''
         '''
@@ -231,8 +228,18 @@ class DBWNode(object):
 
         while not rospy.is_shutdown():
             if(self.enabled):
+
+                # start = rospy.get_time()
+
                 throttle, brake, steer = self.controller.control()
                 self.publish(throttle, brake, steer)
+
+                # Debug output
+                # latency = (rospy.get_time() - start) * 1000.0
+                # self.pub_debug(7, "---------------------------- Drive by Wire Node ----------------------------")
+                # self.pub_debug(8, "Commands: (Throttle: " + str(throttle) + ", Brake: " + str(brake) + ", Steering: " + str(steer) + ")")
+                # self.pub_debug(9, "Latency: " + str(latency) + " ms")
+
             rate.sleep()
 
 if __name__ == '__main__':
