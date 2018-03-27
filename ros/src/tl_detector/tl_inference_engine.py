@@ -220,7 +220,7 @@ class DetectionInferenceEngine(object):
         for i in range(n):
             bot, left, top, right = boxes[i, ...]
             area = abs((bot-top) * (right - left))
-            print('Area: ', area)
+            #print('Area: ', area)
             if area >= min_area and area <= max_area:
                 idxs.append(i)
         

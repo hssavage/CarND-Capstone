@@ -72,6 +72,12 @@
 # | 3/26/2018          | Jason  Clemons| Added real detector class          | #
 # |                    |               | Basically functional, needs testing| #
 # |                    |               | Added flag for debug ops in real   | #
+# |                    |               | and no more auto save on images    | #
+# +--------------------+---------------+------------------------------------+ #
+# | 3/26/2018          | Jason  Clemons| Moved things to parameter server   | #
+# |                    |               |                                    | #
+# |                    |               |                                    | #
+# |                    |               |                                    | #
 # +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
@@ -196,7 +202,7 @@ class SimDetector(BaseDetector):
     '''
 
     def __init__(self,vehicle_pose=None, waypoints=None, lights_config=None,
-                 save_path=None, model_path=None):
+                 save_path=None, model_path=None, save_data=False, run_debug=True):
         '''
         Detector constructor
 
@@ -218,7 +224,7 @@ class SimDetector(BaseDetector):
         self.closest_wp = -1
 
         # Do we want to gather training data?
-        self.save_data = False
+        self.save_data = save_data
         self.save_path = save_path
         self.save_count = 0
 
@@ -228,18 +234,19 @@ class SimDetector(BaseDetector):
         # What was the last light wp and the state 
         self.last_closest_light_wp = -1
         self.last_closest_light_state = -1
-        self.state_count_threshold = 2
+        self.state_count_threshold = rospy.get_param("/tl_detector/state_count_threshold")
         self.state_count = 0
         self.predicted_state = -1
+        self.confidence_thr = rospy.get_param("/tl_detector/confidence_thr")
 
 
         #Instantiate a inference engine
         # TODO Move thresh to parameter server
-        self.run_inference_engine = True
-        self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= 0.2)
+        self.run_inference_engine = run_debug
+        self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= self.confidence_thr)
 
         # Resolve the path
-        if(self.save_path != None):
+        if(self.save_path != None and self.save_data):
             self.save_path = abspath(expanduser(self.save_path))
 
             # See if the path exists or makes sense. If it does then make
@@ -549,7 +556,7 @@ class Detector(BaseDetector):
     '''
     '''
     def __init__(self,vehicle_pose=None, waypoints=None, lights_config=None,
-                 save_path=None, model_path=None):
+                 save_path=None, model_path=None, save_data = False, run_debug=True):
         '''
         Detector constructor
 
@@ -573,26 +580,29 @@ class Detector(BaseDetector):
         # What was the last light wp and the state 
         self.last_closest_light_wp = -1
         self.last_closest_light_state = -1
-        self.state_count_threshold = 2
+
+        self.state_count_threshold = rospy.get_param("/tl_detector/state_count_threshold")
         self.state_count = 0
 
         self.predicted_light_ind  =-1
         self.predicted_state = 0
 
         # Do we want to gather training data?
-        self.save_data = False
+        self.save_data = save_data
         self.save_path = save_path
         self.save_count = 0
 
-        self.run_debug = True
+        self.run_debug = run_debug
 
         #Path to the model for inference
         self.model_path = model_path
 
         #Instantiate a inference engine
         # TODO Move thresh to parameter server
-        self.run_inference_engine = True
-        self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= 0.20)
+
+        self.confidence_thr = rospy.get_param("/tl_detector/confidence_thr")
+
+        self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= self.confidence_thr)
 
         # Resolve the path
         if(self.save_path != None and self.save_data):

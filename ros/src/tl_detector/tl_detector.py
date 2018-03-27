@@ -105,6 +105,11 @@
 # |                    |               |                                    | #
 # |                    |               |                                    | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/26/2018          | Jason  Clemons| Moved things to parameter server   | #
+# |                    |               |                                    | #
+# |                    |               |                                    | #
+# |                    |               |                                    | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -129,9 +134,14 @@ class TLDetector(object):
         '''
         '''
 
+
         # Init this as a ROS node
+
+
+
         rospy.init_node('tl_detector',log_level=rospy.DEBUG)
 
+        #rospy.init_node('tl_detector')
         # Load traffic light config data -- YAML file with:
         # camera_info - Might be the header of the YAML file?
         # image_width - [800 Default]
@@ -140,21 +150,26 @@ class TLDetector(object):
         config_string = rospy.get_param("/traffic_light_config")
         lights_config = yaml.load(config_string)
 
-        model_file_path = rospy.get_param("/traffic_light_detector_model") + '/frozen_inference_graph.pb'
+        model_file_path = rospy.get_param("~traffic_light_detector_model")
         training_data_path = rospy.get_param("~traffic_light_training_data_directory")
+                                                 
+        self.use_sim_detector = rospy.get_param("~use_sim_detector")
+        self.save_data = rospy.get_param("~save_data")
+        self.run_debug = rospy.get_param("~run_debug")
 
-        self.use_sim_detector = True
+
+
         print("Model File Path:", model_file_path)
 
         print("Training Data Path:", training_data_path)
 
         # Main detector object
         if(self.use_sim_detector):
-            self.detector = SimDetector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
+            self.detector = SimDetector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path, save_data = self.save_data, run_debug = self.run_debug)
             #self.shadow_detector = Detector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
 
         else:
-            self.detector = Detector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
+            self.detector = Detector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path, save_data = self.save_data, run_debug = self.run_debug)
             #self.shadow_detector = SimDetector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
 
 
