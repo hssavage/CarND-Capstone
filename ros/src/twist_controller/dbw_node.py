@@ -63,6 +63,9 @@
 # |                    |               | system wide debug interface        | #
 # |                    |               | defined by the debug_output node   | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/27/2018          | Henry Savage  | Added target velocities to the     | #
+# |                    |               | outputted debug information        | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -208,7 +211,7 @@ class DBWNode(object):
         bcmd.pedal_cmd = brake
         self.brake_pub.publish(bcmd)
 
-    def pub_debug(self, line, s):
+    def debug(self, line, s):
         '''
         '''
         try:
@@ -229,16 +232,18 @@ class DBWNode(object):
         while not rospy.is_shutdown():
             if(self.enabled):
 
-                # start = rospy.get_time()
+                start = rospy.get_time()
 
                 throttle, brake, steer = self.controller.control()
                 self.publish(throttle, brake, steer)
 
                 # Debug output
-                # latency = (rospy.get_time() - start) * 1000.0
-                # self.pub_debug(7, "---------------------------- Drive by Wire Node ----------------------------")
-                # self.pub_debug(8, "Commands: (Throttle: " + str(throttle) + ", Brake: " + str(brake) + ", Steering: " + str(steer) + ")")
-                # self.pub_debug(9, "Latency: " + str(latency) + " ms")
+                latency = (rospy.get_time() - start) * 1000.0
+                self.debug(8, "---------------------------- Drive by Wire Node ----------------------------")
+                self.debug(9, "Target Linear: " + str(self.controller.target_linear_velocity))
+                self.debug(10, "Target Angular: " + str(self.controller.target_angular_velocity))
+                self.debug(11, "Commands: (Throttle: " + str(throttle) + ", Brake: " + str(brake) + ", Steering: " + str(steer) + ")")
+                self.debug(12, "Latency: " + str(latency) + " ms")
 
             rate.sleep()
 

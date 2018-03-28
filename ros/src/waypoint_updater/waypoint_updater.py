@@ -69,6 +69,10 @@
 # |                    |               | system wide debug interface        | #
 # |                    |               | defined by the debug_output node   | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/27/2018          | Henry Savage  | Added lines to debug output.       | #
+# |                    |               | Decreased the lookahead points and | #
+# |                    |               | increased the rate of publishing   | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -133,6 +137,7 @@ def debug_frame(planner, ts):
     # Build frame
     frame = ""
     frame += "Timestamp: " + str(ts) + "\n"
+    frame += "Speed Limit: " + str(s_limit) + " m/s | " + str(s_limit * MPS_TO_MPH) + " mph\n"
     frame += "Current Position: (" + str(cur_x) + ", " + str(cur_y) + ", " + str(cur_z) + ") "
     frame += "(Updated: " + str(pos_ts) + ", Delta: " + str(pos_ts - last_pos_ts) + ")\n"
     frame += "Current Waypoint: " + str(cur_wp) + "/" + str(total_wps) + " "
@@ -152,7 +157,7 @@ def debug_frame(planner, ts):
 # Waypoint Updater                                                            #
 #-----------------------------------------------------------------------------#
 
-LOOKAHEAD_WPS = 100 # Number of waypoints we will publish. You can change this number
+LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
 KPH_TO_MPS = (1000.0 / 3600.0)
 MPS_TO_MPH = 2.236940
 
@@ -281,6 +286,7 @@ class WaypointUpdater(object):
             d.text = str(s)
             self.debug_output.publish(d)
         except Exception as e:
+            print("WHAT THE EFF: " + str(e))
             return
 
     def run(self):
@@ -289,7 +295,7 @@ class WaypointUpdater(object):
         '''
 
         # Set the refresh rate
-        rate = rospy.Rate(2)
+        rate = rospy.Rate(8)
 
         # Use the start time sentinel to know when to start processing
         start_time = 0
@@ -302,7 +308,7 @@ class WaypointUpdater(object):
         while not rospy.is_shutdown():
 
             # For latency tracking
-            # start = rospy.get_time()
+            start = rospy.get_time()
 
             # Get the next waypoints if possible
             try:
@@ -316,12 +322,12 @@ class WaypointUpdater(object):
             self.last_update_ts = rospy.get_time()
 
             # Debug output, gather status
-            # latency = (rospy.get_time() - start) * 1000.0
-            # frame = debug_frame(self.planner, self.last_update_ts)
-            # lines = len(frame.split("\n"))
-            # self.debug(0, "----------------------------- WAYPOINT UPDATER -----------------------------")
-            # self.debug(1, frame)
-            # self.debug(1 + lines, "Node Latency: " + str(latency) + " ms")
+            latency = (rospy.get_time() - start) * 1000.0
+            frame = debug_frame(self.planner, self.last_update_ts)
+            lines = len(frame.split("\n"))
+            self.debug(0, "----------------------------- WAYPOINT UPDATER -----------------------------")
+            self.debug(1, frame)
+            self.debug(1 + lines, "Node Latency: " + str(latency) + " ms")
 
             # Sleep
             rate.sleep()

@@ -43,6 +43,12 @@
 # |                    |               | opposed to '<= size'. This fixed   | #
 # |                    |               | an off by one error.               | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/27/2018          | Henry Savage  | Updated waypoint lookahead count   | #
+# |                    |               | to clamp to the size of the set if | #
+# |                    |               | the requested amount of points is  | #
+# |                    |               | larger than the entire available   | #
+# |                    |               | set. Updated default speed limit   | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -84,7 +90,7 @@ class PathPlanner():
     '''
     '''
 
-    def __init__(self, vehicle_pose=None, waypoints=None, speed_limit=None,
+    def __init__(self, vehicle_pose=None, waypoints=None, speed_limit=0,
                  max_decel=-1.3, max_accel=10.0):
         '''
         Initializes the PathPlanner object with optional current vehicle
@@ -332,9 +338,9 @@ class PathPlanner():
         if(self.vehicle_pose is None or self.waypoints is None or len(self.waypoints) == 0):
             raise PathPlannerException("Not enough information to find closest waypoint")
 
-        # Check count requested
+        # Check count requested - Clamp the count if its too large
         if(count > len(self.waypoints)):
-            raise PathPlannerException("Count (" + str(count) + ") requested exceeds number of waypoints available (" + str(len(self.waypoints)) + ")")
+            count = len(self.waypoints)
 
         # Get the subset of way points to return
         tl_ind = self.traffic_light_ind

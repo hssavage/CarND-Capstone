@@ -21,8 +21,6 @@
 # |                      |                | to the debug console at a       | #
 # |                      |                | given line staring location     | #
 # +----------------------+----------------+---------------------------------+ #
-# | /debug_enabled       | Any ROS node   | Turns the debug console on/off  | #
-# +----------------------+----------------+---------------------------------+ #
 #                                                                             #
 # Change Log:                                                                 #
 # -----------                                                                 #
@@ -30,6 +28,8 @@
 # | Date               | Author        | Description                        | #
 # +--------------------+---------------+------------------------------------+ #
 # | 3/25/2018          | Henry Savage  | Initial pass on the code           | #
+# +--------------------+---------------+------------------------------------+ #
+# | 3/27/2018          | Henry Savage  | Updated topic documentation        | #
 # +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
@@ -52,6 +52,7 @@ class DebugOutput(object):
 
         # Attributes
         self.enabled = rospy.get_param("~debug_enabled", False)
+        print("DEBUG ENABLED? '" + str(self.enabled) + "'")
         self.length = 120
 
         # Maintain frame object
