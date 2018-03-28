@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- NOTE: Adding an 'output="screen"' makes it log output to the console -->
+    <node pkg="debug_output" type="debug_output.py" name="debug_output" output="screen"/>
+
+    <!-- Turn the freeze frame debug output on/off -->
+    <param name="debug_enabled" type="bool" value="False" />
+
+</launch>

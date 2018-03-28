@@ -36,7 +36,7 @@
 # | Topic Path         | Update Rate + | Description                        | #
 # |                    | Queue Size    |                                    | #
 # +--------------------+---------------+------------------------------------+ #
-# | /final_waypoints   | ??hz / ? item | The updated subset of waypoints    | #
+# | /final_waypoints   | 2hz / 1 item  | The updated subset of waypoints    | #
 # |                    |               | with velocities adjusted for       | #
 # |                    |               | traffic lights and obstacles       | #
 # +--------------------+---------------+------------------------------------+ #
@@ -64,6 +64,11 @@
 # |                    |               | changed debug interface to output  | #
 # |                    |               | update timestamp and latencies     | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/25/2018          | Henry Savage  | Updated the debug interface to use | #
+# |                    |               | the new /debug topic, which is a   | #
+# |                    |               | system wide debug interface        | #
+# |                    |               | defined by the debug_output node   | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -74,114 +79,20 @@ import rospy
 from std_msgs.msg import Int32
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
+from debug_msgs.msg import Debug
 
 # Our waypoint planner
 from planning import PathPlanner, PathPlannerException
 
-'''
-This node will publish waypoints from the car's current position to some `x` distance ahead.
-
-As mentioned in the doc, you should ideally first implement a version which does not care
-about traffic lights or obstacles.
-
-Once you have created dbw_node, you will update this node to use the status of traffic lights too.
-
-Please note that our simulator also provides the exact location of traffic lights and their
-current status in `/vehicle/traffic_lights` message. You can use this message to build this node
-as well as to verify your TL classifier.
-
-TODO (for Yousuf and Aaron): Stopline location for each traffic light.
-'''
-
-###############################################################################
-# DEBUG FUNCTIONS                                                             #
-###############################################################################
-
-from tf.transformations import euler_from_quaternion
-
-def get_euler(quat_orient):
-    '''
-    Returns the yaw, pitch and roll values from a quaternion orientation
-
-    Returns:
-        list<float>: [pitch, roll, yaw]
-
-    Complexity: O(1)
-    '''
-    return euler_from_quaternion([quat_orient.x, quat_orient.y,
-                                  quat_orient.z, quat_orient.w])
-
-def red(msg):
-    '''
-    Format text as red
-    '''
-    return "\033[0;31m" + msg + "\033[0m"
-
-def green(msg):
-    '''
-    Format text as green
-    '''
-    return "\033[0;32m" + msg + "\033[0m"
-
-def purple(msg):
-    '''
-    Format text as purple
-    '''
-    return "\033[0;35m" + msg + "\033[0m"
-
-def term_map(cur_wp, tl_wp, tl_status, wps, x_size=100, y_size=60):
-    '''
-    '''
-
-    # Error check
-    if(wps is None):
-        return ""
-
-    # Bounds of map
-    X_MAX = 2400.0
-    Y_MAX = 3200.0
-
-    # Place map
-    frame = [[" "]*x_size for i in range(y_size)]
-    for wp in wps:
-        wp_x = wp.pose.pose.position.x
-        wp_y = wp.pose.pose.position.y
-        m_x = int((wp_x / X_MAX) * x_size)
-        m_y = int((wp_y / Y_MAX) * y_size)
-        # print("\t- (" + str(m_x) + ", " + str(m_y) + ")")
-        try:
-            frame[y_size - m_y][m_x] = '.'
-        except Exception:
-            pass
-
-    # Add next traffic light
-    if(tl_wp in range(0, len(wps))):
-        wp_x = wps[tl_wp].pose.pose.position.x
-        wp_y = wps[tl_wp].pose.pose.position.y
-        m_x = int((wp_x / X_MAX) * x_size)
-        m_y = int((wp_y / Y_MAX) * y_size)
-        if(tl_status == "red"):
-            frame[y_size - m_y][m_x] = red('o')
-        else:
-            frame[y_size - m_y][m_x] = green('o')
-
-    # Add current position
-    if(cur_wp in range(0, len(wps))):
-        wp_x = wps[cur_wp].pose.pose.position.x
-        wp_y = wps[cur_wp].pose.pose.position.y
-        m_x = int((wp_x / X_MAX) * x_size)
-        m_y = int((wp_y / Y_MAX) * y_size)
-        frame[y_size - m_y][m_x] = purple('x')
-
-    # Remove blank lines and return
-    frame_s = '\n'.join(["".join(s) if '.' in s else "" for s in frame]).strip("\n")
-    return frame_s
+#-----------------------------------------------------------------------------#
+# Debug Output                                                                #
+#-----------------------------------------------------------------------------#
 
 last_pos_ts = None
 last_tl_ts = None
 last_wp_ts = None
 
-def update_frame(planner, ts):
+def debug_frame(planner, ts):
     '''
     Create a debug frame
     '''
@@ -195,7 +106,6 @@ def update_frame(planner, ts):
     cur_x = planner.vehicle_pose.position.x
     cur_y = planner.vehicle_pose.position.y
     cur_z = planner.vehicle_pose.position.z
-    _, _, s_angle = get_euler(planner.vehicle_pose.orientation)
     cur_wp = planner.next_waypoint
     tl_wp = planner.traffic_light_ind
     wps = planner.waypoints
@@ -218,19 +128,18 @@ def update_frame(planner, ts):
     tl_status = "red"
     if(tl_wp < 0):
         tl_status = "green"
-        tl_wp *= -1
+        tl_wp = "?"
 
     # Build frame
     frame = ""
     frame += "Timestamp: " + str(ts) + "\n"
-    frame += "Current Position: (" + str(cur_x) + ", " + str(cur_y) + ", " + str(cur_z) + ")\n"
+    frame += "Current Position: (" + str(cur_x) + ", " + str(cur_y) + ", " + str(cur_z) + ") "
     frame += "(Updated: " + str(pos_ts) + ", Delta: " + str(pos_ts - last_pos_ts) + ")\n"
-    frame += "Current Waypoint: " + str(cur_wp) + "/" + str(total_wps) + "\n"
+    frame += "Current Waypoint: " + str(cur_wp) + "/" + str(total_wps) + " "
     frame += "(Updated: " + str(wp_ts) + ", Delta: " + str(wp_ts - last_wp_ts) + ")\n"
     frame += "Next Traffic Light: " + str(tl_wp) + "\n"
-    frame += "Next Traffic Status: " + str(tl_status) + "\n"
-    frame += "(Updated: " + str(tl_ts) + ", Delta: " + str(tl_ts - last_tl_ts) + ")\n"
-    frame += term_map(cur_wp, tl_wp, tl_status, wps)
+    frame += "Next Traffic Status: " + str(tl_status) + " "
+    frame += "(Updated: " + str(tl_ts) + ", Delta: " + str(tl_ts - last_tl_ts) + ")"
 
     # Update timestamps
     last_pos_ts = pos_ts
@@ -239,20 +148,13 @@ def update_frame(planner, ts):
 
     return frame
 
-def set_text_frame(msg):
-    '''
-    Clear the screen and replace it with the given message text frame
-    '''
-    s = "\033[?25l" + "\033[1J" + "\033[1;1H" + msg + "\033[?25h"
-    print(s)
+#-----------------------------------------------------------------------------#
+# Waypoint Updater                                                            #
+#-----------------------------------------------------------------------------#
 
 LOOKAHEAD_WPS = 100 # Number of waypoints we will publish. You can change this number
 KPH_TO_MPS = (1000.0 / 3600.0)
 MPS_TO_MPH = 2.236940
-
-###############################################################################
-# Waypoint Updater                                                            #
-###############################################################################
 
 class WaypointUpdater(object):
     def __init__(self):
@@ -269,6 +171,9 @@ class WaypointUpdater(object):
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
         rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_light_cb)
         #rospy.Subscriber('/obstacle_waypoint', Lane, self.waypoints_cb)
+
+        # Debug message publisher
+        self.debug_output = rospy.Publisher('/debug', Debug, queue_size=2)
 
         # Define the data that is exiting this node
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
@@ -367,6 +272,17 @@ class WaypointUpdater(object):
         self.final_waypoints_pub.publish(lane)
         self.seq = self.seq + 1
 
+    def debug(self, line, s):
+        '''
+        '''
+        try:
+            d = Debug()
+            d.line_start = line
+            d.text = str(s)
+            self.debug_output.publish(d)
+        except Exception as e:
+            return
+
     def run(self):
         '''
         The control loop for the final_waypoint publisher
@@ -385,6 +301,9 @@ class WaypointUpdater(object):
         # Control loop
         while not rospy.is_shutdown():
 
+            # For latency tracking
+            # start = rospy.get_time()
+
             # Get the next waypoints if possible
             try:
                 next_waypoints = self.planner.get_next_waypoints(LOOKAHEAD_WPS)
@@ -397,11 +316,19 @@ class WaypointUpdater(object):
             self.last_update_ts = rospy.get_time()
 
             # Debug output, gather status
-            # frame = update_frame(self.planner, self.last_update_ts)
-            # set_text_frame(frame)
+            # latency = (rospy.get_time() - start) * 1000.0
+            # frame = debug_frame(self.planner, self.last_update_ts)
+            # lines = len(frame.split("\n"))
+            # self.debug(0, "----------------------------- WAYPOINT UPDATER -----------------------------")
+            # self.debug(1, frame)
+            # self.debug(1 + lines, "Node Latency: " + str(latency) + " ms")
 
             # Sleep
             rate.sleep()
+
+#-----------------------------------------------------------------------------#
+# Run                                                                         #
+#-----------------------------------------------------------------------------#
 
 if __name__ == '__main__':
     try:

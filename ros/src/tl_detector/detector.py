@@ -66,6 +66,16 @@
 # |                    |               | and also using roslog outputs      | #
 # +--------------------+---------------+------------------------------------+ #
 # | 3/25/2018          | Jason  Clemons| Added in latency msgs              | #
+# |                    |               | Turn off inference engine by       | #
+# |                    |               | default                            | #
+# +--------------------+---------------+------------------------------------+ #
+# | 3/26/2018          | Jason  Clemons| Added real detector class          | #
+# |                    |               | Basically functional, needs testing| #
+# |                    |               | Added flag for debug ops in real   | #
+# |                    |               | and no more auto save on images    | #
+# +--------------------+---------------+------------------------------------+ #
+# | 3/26/2018          | Jason  Clemons| Moved things to parameter server   | #
+# |                    |               |                                    | #
 # |                    |               |                                    | #
 # |                    |               |                                    | #
 # +--------------------+---------------+------------------------------------+ #
@@ -192,7 +202,7 @@ class SimDetector(BaseDetector):
     '''
 
     def __init__(self,vehicle_pose=None, waypoints=None, lights_config=None,
-                 save_path=None, model_path=None):
+                 save_path=None, model_path=None, save_data=False, run_debug=True):
         '''
         Detector constructor
 
@@ -214,7 +224,7 @@ class SimDetector(BaseDetector):
         self.closest_wp = -1
 
         # Do we want to gather training data?
-        self.save_data = False
+        self.save_data = save_data
         self.save_path = save_path
         self.save_count = 0
 
@@ -224,18 +234,19 @@ class SimDetector(BaseDetector):
         # What was the last light wp and the state 
         self.last_closest_light_wp = -1
         self.last_closest_light_state = -1
-        self.state_count_threshold = 2
+        self.state_count_threshold = rospy.get_param("/tl_detector/state_count_threshold")
         self.state_count = 0
         self.predicted_state = -1
+        self.confidence_thr = rospy.get_param("/tl_detector/confidence_thr")
 
 
         #Instantiate a inference engine
         # TODO Move thresh to parameter server
-        self.run_inference_engine = False
-        self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= 0.02)
+        self.run_inference_engine = run_debug
+        self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= self.confidence_thr)
 
         # Resolve the path
-        if(self.save_path != None):
+        if(self.save_path != None and self.save_data):
             self.save_path = abspath(expanduser(self.save_path))
 
             # See if the path exists or makes sense. If it does then make
@@ -254,7 +265,7 @@ class SimDetector(BaseDetector):
 
         self.latency_pub = rospy.Publisher('/debug/tl_detector_latency', Traffic_light_latency, queue_size=1)
 
-
+        rospy.loginfo('SimDetector Active')
 
     def set_vehicle_pose(self, pose):
         '''
@@ -480,6 +491,8 @@ class SimDetector(BaseDetector):
                 self.state_count = 0
             self.state_count +=1
             debug_start_time = rospy.get_rostime()
+            rospy.loginfo('External Predicted Light State - %s for light at %s vs %s', 
+                self.light_state,self.light_ind, self.lights[self.next_light[self.closest_wp][0]].state )
 
             
 
@@ -492,6 +505,9 @@ class SimDetector(BaseDetector):
 
             rospy.logdebug('box coordinates: %s', output_dict['detection_boxes'])
             rospy.logdebug('Detection Scores: %s',output_dict['detection_scores'])
+            rospy.logdebug('Detection Classes: %s',output_dict['detection_classes'])
+
+
 
             # draw the bounding boxes on the image
             detected_image = draw_bounding_boxes(detection_image, output_dict['detection_boxes'], output_dict['detection_classes'], self.inference_engine.color_list,thickness=4)
@@ -535,13 +551,12 @@ class SimDetector(BaseDetector):
 # "Real" Detector                                                             #
 #-----------------------------------------------------------------------------#
 
-#NOTE: Everything below here is beig transformed from error :/ Beware.
 
 class Detector(BaseDetector):
     '''
     '''
     def __init__(self,vehicle_pose=None, waypoints=None, lights_config=None,
-                 save_path=None, model_path=None):
+                 save_path=None, model_path=None, save_data = False, run_debug=True):
         '''
         Detector constructor
 
@@ -565,27 +580,32 @@ class Detector(BaseDetector):
         # What was the last light wp and the state 
         self.last_closest_light_wp = -1
         self.last_closest_light_state = -1
-        self.state_count_threshold = 4
+
+        self.state_count_threshold = rospy.get_param("/tl_detector/state_count_threshold")
         self.state_count = 0
 
         self.predicted_light_ind  =-1
         self.predicted_state = 0
 
         # Do we want to gather training data?
-        self.save_data = False
+        self.save_data = save_data
         self.save_path = save_path
         self.save_count = 0
+
+        self.run_debug = run_debug
 
         #Path to the model for inference
         self.model_path = model_path
 
         #Instantiate a inference engine
         # TODO Move thresh to parameter server
-        self.run_inference_engine = True
-        self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= 0.02)
+
+        self.confidence_thr = rospy.get_param("/tl_detector/confidence_thr")
+
+        self.inference_engine = DetectionInferenceEngine(model_path=model_path, confidence_thr= self.confidence_thr)
 
         # Resolve the path
-        if(self.save_path != None):
+        if(self.save_path != None and self.save_data):
             self.save_path = abspath(expanduser(self.save_path))
 
             # See if the path exists or makes sense. If it does then make
@@ -602,6 +622,10 @@ class Detector(BaseDetector):
         rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray,
                          self.vehicle_traffic_lights_cb, queue_size=1)
 
+        self.latency_pub = rospy.Publisher('/debug/tl_detector_latency', Traffic_light_latency, queue_size=1)
+
+
+        rospy.loginfo('Detector Active')
     def set_vehicle_pose(self, pose):
         '''
         Set the current vehicle pose
@@ -760,6 +784,10 @@ class Detector(BaseDetector):
         when an image comes in
         '''
 
+        latency = Traffic_light_latency()
+        start_time = rospy.get_rostime()
+
+
         # Grab the image - convert it to something we can use and save
         self.image = self.bridge.imgmsg_to_cv2(image, "bgr8")
 
@@ -771,42 +799,65 @@ class Detector(BaseDetector):
         #       and grab the state if it is. If we don't, we're going to
         #       get mostly pictures of hills...
 
+        inference_start_time = rospy.get_rostime()
 
-        if self.run_inference_engine:
-            # Grab the detector result image
-            # TODO: add in the marking of the image
-            # I plan on using the simulated version so the vehicle can run
-            detection_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)
+        # Grab the detector result image
+        # TODO: add in the marking of the image
+        # I plan on using the simulated version so the vehicle can run
+        detection_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)
 
-            # The model expects batches so ie 4 dimensional data so add in a single dimension to
-            # get a bactch size of 1
-            detection_image_ex = np.expand_dims(detection_image, axis=0)
+        # The model expects batches so ie 4 dimensional data so add in a single dimension to
+        # get a bactch size of 1
+        detection_image_ex = np.expand_dims(detection_image, axis=0)
 
-            # Returns a dictionaru with bounding boxes and classes
-            output_dict,predicted_light_state =self.inference_engine.run_inference(detection_image_ex)
+        # Returns a dictionaru with bounding boxes and classes
+        output_dict,predicted_light_state =self.inference_engine.run_inference(detection_image_ex)
 
-            rospy.loginfo('Detection Scores:  - %s',output_dict['detection_scores']) 
+
+        inference_end_time = rospy.get_rostime()
+
+        debug_start_time = rospy.get_rostime()
+        if self.run_debug:
+
+            rospy.loginfo('| Detection Scores:  - %s',output_dict['detection_scores']) 
+
 
             # Just some debug output of the live boxes
-            print('predicted_light_state: ', predicted_light_state)
-            print('box coordinates: ', output_dict['detection_boxes'])
-            print('Detection Scores: ',output_dict['detection_scores'])
+            rospy.logdebug('| Current predicted_light_state: %s', predicted_light_state)
+            rospy.logdebug('| box coordinates: %s', output_dict['detection_boxes'])
+            rospy.logdebug('| Detection Scores: %s',output_dict['detection_scores'])
+            rospy.logdebug('| Detection Classes: %s',output_dict['detection_classes'])
+
+
+
+
+
+
+
+
+
+
             # draw the bounding boxes on the image
             detected_image = draw_bounding_boxes(detection_image, output_dict['detection_boxes'], output_dict['detection_classes'], self.inference_engine.color_list,thickness=4)
 
             # Convert the detection image to an image message and store for the publish loop
             self.detector_result_image_msg = self.bridge.cv2_to_imgmsg(detected_image, 'rgb8')#encoding="passthrough")
 
-        # No need to do this if we're not saving any data
-        if(not self.save_data):
-            return
+        debug_end_time = rospy.get_rostime()
+
+
 
         # If we don't know where we are, we cant update the light status
         if(self.closest_wp == -1):
             return
 
-        rospy.loginfo('Predicted Light State - %s for light at %s', 
-            predicted_light_state,self.next_light[self.closest_wp][0])
+        if self.run_debug:
+
+            rospy.loginfo('Predicted Light State - %s for light at %s vs %s', 
+                predicted_light_state,self.next_light[self.closest_wp][0], self.lights[self.next_light[self.closest_wp][0]].state )
+        else:
+            rospy.loginfo('Predicted Light State - %s for light at %s', 
+                predicted_light_state,self.next_light[self.closest_wp][0] )
 
 
         if(self.last_closest_light_wp == self.next_light[self.closest_wp][2]):
@@ -830,11 +881,35 @@ class Detector(BaseDetector):
         self.light_state = self.predicted_state
         self.light_ind = self.predicted_light_ind
 
+        if self.run_debug:
 
-        # Finally, save the image
-        file_name = self.save_path + "/"+"img_" + str(self.save_count) + "_s" + str(self.light_state) + ".png"
-        cv2.imwrite(file_name, self.image)
-        self.save_count += 1
+            rospy.loginfo('| External Predicted Light State - %s for light at %s vs %s', 
+                self.light_state,self.light_ind, self.lights[self.next_light[self.closest_wp][0]].state )
+        else:
+            rospy.loginfo('| External Predicted Light State - %s for light at %s', 
+                self.light_state,self.light_ind )
+
+
+        save_start_time = rospy.get_rostime()
+        # No need to do this if we're not saving any data
+        if(self.save_data):
+            # Finally, save the image
+            file_name = self.save_path + "/"+"img_" + str(self.save_count) + "_s" + ".png"
+            cv2.imwrite(file_name, self.image)
+            self.save_count += 1
+
+        save_end_time = rospy.get_rostime()
+        end_time = rospy.get_rostime()
+        latency.total_duration = end_time - start_time
+
+        latency.inference_duration = inference_end_time - inference_start_time
+        latency.debug_duration = debug_end_time - debug_start_time
+        latency.save_duration = save_end_time - save_start_time
+        self.latency_pub.publish(latency)
+
+
+
+
 
     def traffic_light_status(self):
         '''
