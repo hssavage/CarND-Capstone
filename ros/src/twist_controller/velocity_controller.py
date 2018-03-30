@@ -28,6 +28,8 @@
 # +--------------------+---------------+------------------------------------+ #
 # | 3/29/2018          | Xiao He       | Updated the calculation for        | #
 # |                    |               | throttle                           | #
+# +-------------------------------------------------------------------------| #
+# | 3/30/2018          | Xiao He       | Updated the comments               | #
 ###############################################################################
 '''
 
@@ -74,14 +76,16 @@ class VelocityController(object):
         Returns a throttle and brake amount based on the current and target
         velocities
 
-        To mix the throttle and brake amounts together we need a method of
-        mapping a 'Nm' torque amount (the brake-by-wire system's value) to
-        a percentage (the throttle-by-wire system's value). The thought is
-        that:
-
+        Throttle value is calculated as proportional to the velocity error
+        (target velocity - current velocity) and the proportional gain can be tuned.
+        Throttle ranges from 0 to 1 and it is limited by a parameter, which can
+        be set in the dbw_node.py
+        
+        Brake value is in the units of torque:
         Torque = F * r
         F = M * a
-        a = (target velocity - current velocity) / <time of execution>
+        a = (velocity error) / <time of execution>
+          = (target velocity - current velocity) / <time of execution>
 
         We'll use the wheel torque (as opposed to the engine torque) and
         assume that there's no resistence forces on the wheels/tires. This
@@ -104,7 +108,7 @@ class VelocityController(object):
         throttle = 0.0
         brake = 0.0
 
-        # Get the velocity delta
+        # Get the velocity error
         d_vel = (linear_velocity - current_velocity)
 
         # For Now we'll try to execute the acceleration over a second
@@ -117,11 +121,10 @@ class VelocityController(object):
         # torque value
         torque = self.total_vehicle_mass * self.wheel_radius * acc
 
-        # if we're accelerating, normalize this the range [0, 1]. We can use
-        # the max torque value created above (mass * wheel radius * max acc)
         # When we're on the throttle, we're off the brake and vice versa
         if(torque >= 0):
-            # control the throttle as proportional to velocity delta and gate the throttle to the limit
+            # control the throttle to be proportional to the velocity delta
+            # and gate the throttle to the limit
             throttle = d_vel * 3.5
             throttle, brake = min(self.max_throttle, throttle), 0.0
         else:
