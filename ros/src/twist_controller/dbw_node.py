@@ -66,6 +66,7 @@
 # | 3/27/2018          | Henry Savage  | Added target velocities to the     | #
 # |                    |               | outputted debug information        | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/29/2018          | Xiao He       | updated the velocity controller    | #
 ###############################################################################
 '''
 
@@ -92,14 +93,13 @@ class DBWNode(object):
         brake_deadband = rospy.get_param('~brake_deadband', .1) # Torque value
         decel_input_limit = rospy.get_param('~decel_limit', -5) # Torque value
         accel_input_limit = rospy.get_param('~accel_limit', 1.) # Percent engaged value
-        accel_limit = 10.0
-        decel_limit = -10.0
         wheel_radius = rospy.get_param('~wheel_radius', 0.2413)
         wheel_base = rospy.get_param('~wheel_base', 2.8498)
         steer_ratio = rospy.get_param('~steer_ratio', 14.8)
         max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
         min_speed = 0.0
+        max_throttle = 0.5 # limit the throttle
 
         # Register our subscribes
         rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cmd_cb)
@@ -125,7 +125,7 @@ class DBWNode(object):
             wheel_base=wheel_base, steer_ratio=steer_ratio,
             min_speed=min_speed, max_lat_accel=max_lat_accel,
             max_steer_angle=max_steer_angle, vehicle_mass=vehicle_mass,
-            max_accel=accel_limit, max_decel=decel_limit,
+            max_throttle=max_throttle,
             max_input_accel=accel_input_limit, max_input_decel=decel_input_limit,
             deadband=brake_deadband, fuel_capacity=fuel_capacity,
             wheel_radius=wheel_radius
