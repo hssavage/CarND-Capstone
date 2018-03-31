@@ -18,10 +18,10 @@
     <param name="save_data" type="bool" value="False" />
 
     <!--Run detector debug mode -->
-    <param name="run_debug" type="bool" value="True" />
+    <param name="run_debug" type="bool" value="False" />
 
     <!--Display the classification results even if debug off -->
-    <param name="display_classification" type="bool" value="False" />
+    <param name="display_classification" type="bool" value="True" />
 
 
     <!--Temporal filter thr.  How many times must see traffic light state before say that is state externally-->
