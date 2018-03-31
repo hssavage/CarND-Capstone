@@ -110,6 +110,11 @@
 # |                    |               |                                    | #
 # |                    |               |                                    | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/30/2018          | Jason  Clemons| Added display_classification flag  | #
+# |                    |               | Removed subscription we don't need | #
+# |                    |               |                                    | #
+# |                    |               |                                    | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -150,13 +155,15 @@ class TLDetector(object):
         config_string = rospy.get_param("/traffic_light_config")
         lights_config = yaml.load(config_string)
 
+        #load values from the params to be used by the tl_detector
         model_file_path = rospy.get_param("~traffic_light_detector_model")
         training_data_path = rospy.get_param("~traffic_light_training_data_directory")
                                                  
         self.use_sim_detector = rospy.get_param("~use_sim_detector")
+
         self.save_data = rospy.get_param("~save_data")
         self.run_debug = rospy.get_param("~run_debug")
-
+        self.display_classification = rospy.get_param("~display_classification")
 
 
         print("Model File Path:", model_file_path)
@@ -169,7 +176,7 @@ class TLDetector(object):
             #self.shadow_detector = Detector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
 
         else:
-            self.detector = Detector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path, save_data = self.save_data, run_debug = self.run_debug)
+            self.detector = Detector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path, save_data = self.save_data, run_debug = self.run_debug, display_classification=self.display_classification)
             #self.shadow_detector = SimDetector(lights_config=lights_config, model_path=model_file_path, save_path=training_data_path)
 
 
@@ -177,7 +184,7 @@ class TLDetector(object):
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
         sub6 = rospy.Subscriber('/image_color', Image, self.image_cb)
-        sub7 = rospy.Subscriber('/image_raw', Image, self.image_cb)
+        #sub7 = rospy.Subscriber('/image_raw', Image, self.image_cb)
 
 
 

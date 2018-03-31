@@ -79,6 +79,11 @@
 # |                    |               |                                    | #
 # |                    |               |                                    | #
 # +--------------------+---------------+------------------------------------+ #
+# | 3/30/2018          | Jason  Clemons| Added display_classification flag  | #
+# |                    |               | Removed subscription we don't need | #
+# |                    |               | Added some comments                | #
+# |                    |               | Enabled the loopback for light loc | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -429,12 +434,12 @@ class SimDetector(BaseDetector):
                 self.next_light[i][2] = n_sl
 
         # Handle the loop back case (though this may not matter)
-        # i = len(self.next_light) - 1
-        # while(self.next_light[i][0] == -1):
-        #     self.next_light[i] = self.next_light[0]
-        #     i -= 1
+        i = len(self.next_light) - 1
+        while(self.next_light[i][0] == -1):
+             self.next_light[i] = self.next_light[0]
+             i -= 1
 
-        # for i in range(0, len(self.next_light)):
+        #for i in range(0, len(self.next_light)):
         #     print(str(i) + ": " + str(self.next_light[i][0]) + ", " + str(self.next_light[i][1]) + ", " + str(self.next_light[i][2]))
 
     def set_image(self, image):
@@ -462,7 +467,6 @@ class SimDetector(BaseDetector):
             inference_start_time = rospy.get_rostime()
 
             # Grab the detector result image
-            # TODO: add in the marking of the image
             # I plan on using the simulated version so the vehicle can run
             detection_image = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)
 
@@ -475,7 +479,7 @@ class SimDetector(BaseDetector):
             inference_end_time = rospy.get_rostime()
         
 
-
+            #Temporal filter to force self.state_count frames of state before officially switching classification
             if(self.last_closest_light_wp == self.light_ind):
                 if(self.last_closest_light_state == predicted_light_state):
 
@@ -528,6 +532,8 @@ class SimDetector(BaseDetector):
         file_name = self.save_path + "/"+"img_" + str(self.save_count) + "_s" + str(self.light_state) + ".png"
         cv2.imwrite(file_name, self.image)
         self.save_count += 1
+
+        #Timing calculation adnd publish
         save_end_time = rospy.get_rostime()
 
         end_time = rospy.get_rostime()
@@ -556,7 +562,7 @@ class Detector(BaseDetector):
     '''
     '''
     def __init__(self,vehicle_pose=None, waypoints=None, lights_config=None,
-                 save_path=None, model_path=None, save_data = False, run_debug=True):
+                 save_path=None, model_path=None, save_data = False, run_debug=True, display_classification=False):
         '''
         Detector constructor
 
@@ -584,6 +590,7 @@ class Detector(BaseDetector):
         self.state_count_threshold = rospy.get_param("/tl_detector/state_count_threshold")
         self.state_count = 0
 
+        #Internal light state
         self.predicted_light_ind  =-1
         self.predicted_state = 0
 
@@ -592,6 +599,10 @@ class Detector(BaseDetector):
         self.save_path = save_path
         self.save_count = 0
 
+        #Just allow us to draw the bounding boxes but not the rest of debug
+        self.display_classification = display_classification
+
+        #Enable debug mode
         self.run_debug = run_debug
 
         #Path to the model for inference
@@ -778,6 +789,17 @@ class Detector(BaseDetector):
                 self.next_light[i][1] = n_wp
                 self.next_light[i][2] = n_sl
 
+        # Handle the loop back case (though this may not matter)
+        i = len(self.next_light) - 1
+        while(self.next_light[i][0] == -1):
+             self.next_light[i] = self.next_light[0]
+             i -= 1
+
+        #for i in range(0, len(self.next_light)):
+        #     print(str(i) + ": " + str(self.next_light[i][0]) + ", " + str(self.next_light[i][1]) + ", " + str(self.next_light[i][2]))
+
+
+
     def set_image(self, image):
         '''
         Override the set_image() function so we can do data gather potentially
@@ -817,7 +839,7 @@ class Detector(BaseDetector):
         inference_end_time = rospy.get_rostime()
 
         debug_start_time = rospy.get_rostime()
-        if self.run_debug:
+        if self.run_debug or self.display_classification:
 
             rospy.loginfo('| Detection Scores:  - %s',output_dict['detection_scores']) 
 
@@ -851,6 +873,7 @@ class Detector(BaseDetector):
         if(self.closest_wp == -1):
             return
 
+        #Output the classification based on if we are running with known light state or not
         if self.run_debug:
 
             rospy.loginfo('Predicted Light State - %s for light at %s vs %s', 
@@ -859,7 +882,7 @@ class Detector(BaseDetector):
             rospy.loginfo('Predicted Light State - %s for light at %s', 
                 predicted_light_state,self.next_light[self.closest_wp][0] )
 
-
+        #This performas a temporal filter forcing the system to sustain the classifcation for self.state_count frames before officially classifying a light
         if(self.last_closest_light_wp == self.next_light[self.closest_wp][2]):
             if(self.last_closest_light_state == predicted_light_state):
 
@@ -877,10 +900,12 @@ class Detector(BaseDetector):
             self.state_count = 0
         self.state_count +=1
 
-
+        #Expose the classification to the outside world
         self.light_state = self.predicted_state
         self.light_ind = self.predicted_light_ind
 
+
+        #debug info based on if we knoe the real state or not
         if self.run_debug:
 
             rospy.loginfo('| External Predicted Light State - %s for light at %s vs %s', 
@@ -889,8 +914,10 @@ class Detector(BaseDetector):
             rospy.loginfo('| External Predicted Light State - %s for light at %s', 
                 self.light_state,self.light_ind )
 
-
+        #Timing
         save_start_time = rospy.get_rostime()
+
+
         # No need to do this if we're not saving any data
         if(self.save_data):
             # Finally, save the image
@@ -898,6 +925,7 @@ class Detector(BaseDetector):
             cv2.imwrite(file_name, self.image)
             self.save_count += 1
 
+        #Calculate the time for each component and publish it
         save_end_time = rospy.get_rostime()
         end_time = rospy.get_rostime()
         latency.total_duration = end_time - start_time

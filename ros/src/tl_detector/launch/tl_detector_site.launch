@@ -5,7 +5,7 @@
     <!--Traffic Light Detection Node Params -->
 
     <!--Traffic Light Detection Model Path -->
-    <param name="traffic_light_detector_model" type="str" value="$(find tl_detector)/models/mobilenet_ssd/frozen_inference_graph.pb" />
+    <param name="traffic_light_detector_model" type="str" value="$(find tl_detector)/models/inceptionv2_ssd_bags/197k/frozen_inference_graph.pb" />
 
     <!--Traffic Light Training Data Path -->
     <param name="traffic_light_training_data_directory" value="$(find tl_detector)/training_data" />
@@ -18,6 +18,10 @@
 
     <!--Run detector debug mode -->
     <param name="run_debug" type="bool" value="False" />
+
+    <!--Display the classification results even if debug off -->
+    <param name="display_classification" type="bool" value="True" />
+
 
     <!--Temporal filter thr.  How many times must see traffic light state before say that is state externally-->
     <param name="state_count_threshold" type="int" value="2" />
