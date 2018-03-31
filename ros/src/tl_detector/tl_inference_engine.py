@@ -174,8 +174,9 @@ class DetectionInferenceEngine(object):
         for current_class in classes:
             if current_class == 1:
                 new_classes.append(TrafficLight.GREEN)
+            #on a yellow lets call it red
             if current_class == 2:
-                new_classes.append(TrafficLight.YELLOW)
+                new_classes.append(TrafficLight.RED)
             if current_class == 3:
                 new_classes.append(TrafficLight.RED)
             if current_class == 4:
