@@ -25,6 +25,11 @@
 # |                    |               | to "set_target_*" for clarity      | #
 # +--------------------+---------------+------------------------------------+ #
 # | 3/29/2018          | Xiao He       | Updated the velocity_controller    | #
+# +--------------------+---------------+------------------------------------+ #
+# | 4/12/2018          | Henry Savage  | Reverted some changes to carry max | #
+# |                    |               | accel values for thresholding in   | #
+# |                    |               | the velocity controller            | #
+# +--------------------+---------------+------------------------------------+ #
 ###############################################################################
 '''
 
@@ -39,7 +44,10 @@ from velocity_controller import VelocityController
 
 class Controller(object):
     def __init__(self, wheel_base=0.0, steer_ratio=0.0, min_speed=0.0,
-                 max_lat_accel=0.0, max_steer_angle=0.0, vehicle_mass=1e-6, max_throttle=0.0, max_input_accel=0.0, max_input_decel=0.0, deadband=0.0, fuel_capacity=0.0, wheel_radius=0.0):
+                 max_lat_accel=0.0, max_steer_angle=0.0, vehicle_mass=1e-6,
+                 max_accel=0.0, max_decel=0.0, max_input_accel=0.0,
+                 max_input_decel=0.0, deadband=0.0, fuel_capacity=0.0,
+                 wheel_radius=0.0):
         '''
         Initializes the controller object
         '''
@@ -53,7 +61,9 @@ class Controller(object):
 
         # Throttle/Brake Controller
         self.throttle_controller = VelocityController(
-                                        vehicle_mass=vehicle_mass, max_throttle=max_throttle,
+                                        vehicle_mass=vehicle_mass,
+                                        max_accel=max_accel,
+                                        max_decel=max_decel,
                                         max_input_accel=max_input_accel,
                                         max_input_decel=max_input_decel,
                                         wheel_radius=wheel_radius,
