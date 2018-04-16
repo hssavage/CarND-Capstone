@@ -5,7 +5,7 @@
     <!--Traffic Light Detection Node Params -->
 
     <!--Traffic Light Detection Model Path -->
-    <param name="traffic_light_detector_model" type="str" value="$(find tl_detector)/models/inceptionv2_ssd_bags/197k/frozen_inference_graph.pb" />
+    <param name="traffic_light_detector_model" type="str" value="$(find tl_detector)/models/inceptionv2_ssd_bags/balanced_bags/12-5k/frozen_inference_graph.pb" />
 
     <!--Traffic Light Training Data Path -->
     <param name="traffic_light_training_data_directory" value="$(find tl_detector)/training_data" />
